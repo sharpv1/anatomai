@@ -1,5 +1,6 @@
 export type TelegramPlatform = {
   readonly isTelegram: boolean;
+  readonly canUseBackButton: boolean;
   init(): void;
   dispose(): void;
   ready(): void;
@@ -94,6 +95,7 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
   };
   const adapter: TelegramPlatform = {
     get isTelegram() { return Boolean(telegram); },
+    get canUseBackButton() { return Boolean(telegram?.BackButton && typeof telegram.BackButton.onClick === 'function' && typeof telegram.BackButton.offClick === 'function' && typeof telegram.BackButton.show === 'function' && typeof telegram.BackButton.hide === 'function' && supports('6.1')); },
     init() {
       if (initialized) return;
       initialized = true;

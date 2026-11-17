@@ -43,9 +43,9 @@ export function TestSession({ test, platform, onComplete, onExit }: TestSessionP
   };
   const actionLabel = isLast ? (learning ? 'Завершить тест' : 'Завершить экзамен') : 'Далее';
 
-  return <section className="test-session" aria-label="Прохождение теста">
+  return <section className={`test-session${platform.canUseBackButton ? ' test-session--native-back' : ''}`} aria-label="Прохождение теста">
     <header className="test-session__top">
-      <button className="test-session__close" onClick={exit} aria-label="Назад к тестам">‹</button>
+      {!platform.canUseBackButton && <button className="test-session__close" onClick={exit} aria-label="Назад к тестам">‹</button>}
       <div className="test-session__meta"><span title={test.title}>{discipline.trim()}{category && ` · ${category.trim()}`}</span><strong>Вопрос {session.questionIndex + 1} из {questions.length}</strong>
         <div className="test-session__track" role="progressbar" aria-label="Завершённые вопросы" aria-valuemin={0} aria-valuemax={questions.length} aria-valuenow={completed}><b style={{ width: `${(completed / questions.length) * 100}%` }} /></div>
       </div>
