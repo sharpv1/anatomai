@@ -9,6 +9,7 @@ import { TestsPage } from './pages/TestsPage';
 import { createTelegramPlatformAdapter } from './platform/telegram/TelegramPlatformAdapter';
 import './styles/app.css';
 import './features/tests/TestsExperience.css';
+import './styles/motion.css';
 
 export default function App() {
   const platform = useMemo(() => createTelegramPlatformAdapter(), []);
@@ -29,8 +30,8 @@ export default function App() {
   const inTestFlow = route === 'tests' && testScreen !== 'catalog';
 
   return <AppShell route={route} onRouteChange={goTo} toast={toast} onCloseToast={() => setToast('')} hideNavigation={inTestFlow}>
-    {route === 'home' && <HomePage onStartTest={() => goTo('tests')} onNotify={notify} />}
-    {route === 'tests' && testScreen === 'catalog' && <TestsPage onSelectTest={openTest} />}
+    <div className="page-view" hidden={route !== 'home'}><HomePage onStartTest={() => goTo('tests')} onNotify={notify} /></div>
+    <div className="page-view" hidden={route !== 'tests' || testScreen !== 'catalog'}><TestsPage onSelectTest={openTest} /></div>
     {testScreen === 'session' && selectedTest && <TestSession test={selectedTest} platform={platform} onComplete={finishTest} onExit={backToCatalog} />}
     {testScreen === 'result' && result && <TestResult result={result} platform={platform} onBack={backToCatalog} onRetake={retakeTest} />}
     <button className="fullscreen-toggle" aria-label="Открыть полноэкранный режим" onClick={() => platform.requestFullscreen()}>⛶</button>
