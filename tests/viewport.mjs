@@ -93,6 +93,8 @@ try {
       await page.locator('.test-mode-card').first().click();
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), false);
       assert.equal(await page.locator('.test-session__close').count(),mode === 'browser' ? 1 : 0);
+      assert.equal(await page.locator('.test-session__top .test-session__mode').count(),1);
+      assert.ok(await page.locator('.test-session__skip').evaluate(el=>el.getBoundingClientRect().height>=44));
       await page.locator('.test-choice').first().click();
       assert.equal(await page.locator('.test-session__action').innerText(),'Далее');
       assert.equal(await page.locator('.test-choice:disabled').count(),4);
@@ -206,7 +208,7 @@ try {
   assert.equal(await page.locator('.test-result__badge strong').innerText(),'100%');
   assert.equal(await page.getByRole('button',{name:'Разобрать ошибки',exact:true}).count(),0);
   assert.equal(await page.locator('.test-result__progress').getAttribute('aria-valuenow'),'100');
-  assert.equal(await page.getByRole('button',{name:'К тестам',exact:true}).getAttribute('class'),'test-session__action');
+  assert.equal(await page.getByRole('button',{name:'К тестам',exact:true}).getAttribute('class'),'test-result__back');
   await page.getByRole('button',{name:'Пройти ещё раз',exact:true}).click();await page.locator('.test-mode-card').first().click();await page.locator('.test-session__skip').click();
   await page.locator('.test-result').waitFor();
   assert.equal(await page.locator('.test-result__badge strong').innerText(),'0%');
