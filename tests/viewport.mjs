@@ -13,7 +13,7 @@ try {
     server.on('exit', code => reject(new Error(`Preview exited: ${code}`)));
   });
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox'] });
-  for (const [width, height] of [[375,812], [390,844], [430,932], [375,400], [390,480], [430,400], [667,375]]) {
+  for (const [width, height] of [... [320,375,390,430].flatMap(width=>[667,744,812,852].map(height=>[width,height])), [375,400], [667,375]]) {
     for (const mode of ['browser', 'telegram', 'fullscreen']) {
       const page = await browser.newPage({ viewport: { width, height }, reducedMotion: 'reduce' });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -201,6 +201,21 @@ try {
   await page.locator('.test-result').waitFor();
   assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['3','1','1']);
   await page.getByRole('button',{name:'К тестам',exact:true}).click();await page.locator('.tests-page').waitFor();
+  await page.locator('.test-card').nth(3).click();await page.locator('.test-mode-card').first().click();await page.locator('.test-choice').first().click();await page.locator('.test-session__action').click();
+  await page.locator('.test-result').waitFor();
+  assert.equal(await page.locator('.test-result__badge strong').innerText(),'100%');
+  assert.equal(await page.getByRole('button',{name:'Разобрать ошибки',exact:true}).count(),0);
+  assert.equal(await page.locator('.test-result__progress').getAttribute('aria-valuenow'),'100');
+  assert.equal(await page.getByRole('button',{name:'К тестам',exact:true}).getAttribute('class'),'test-session__action');
+  await page.getByRole('button',{name:'Пройти ещё раз',exact:true}).click();await page.locator('.test-mode-card').first().click();await page.locator('.test-session__skip').click();
+  await page.locator('.test-result').waitFor();
+  assert.equal(await page.locator('.test-result__badge strong').innerText(),'0%');
+  assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['0','0','1']);
+  await page.getByRole('button',{name:'Разобрать ошибки',exact:true}).click();assert.equal(await page.locator('.test-review__item').count(),1);
+  await page.locator('.test-result__test').evaluate(el=>{el.textContent='Очень длинное название медицинской дисциплины. '.repeat(15);});
+  assert.ok(await page.locator('.test-result').evaluate(el=>el.scrollWidth<=el.clientWidth));
+  assert.equal(await page.locator('.test-result').evaluate(el=>getComputedStyle(el).scrollbarWidth),'none');
+
   console.log('PASS learning/exam journeys: instant check/locked answer, streak, skip, results, errors review, retake, reduced motion');
   await page.close();
   const motion=await browser.newPage({viewport:{width:390,height:667},reducedMotion:'no-preference'});

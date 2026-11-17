@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage';
 import { TestsPage } from './pages/TestsPage';
 import { createTelegramPlatformAdapter } from './platform/telegram/TelegramPlatformAdapter';
 import './styles/app.css';
+import './styles/tokens.css';
 import './features/tests/TestsExperience.css';
 import './styles/motion.css';
 

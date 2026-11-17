@@ -80,7 +80,7 @@
   font-size: 10px;
   line-height: 12px;
   color: #6c7890;
-  transition: background-color 160ms, color 160ms;
+  transition: background-color var(--motion-press), color var(--motion-press);
 }
 .shell > .bottom-nav .nav-item.active { color: #3d68df; background: transparent; box-shadow: none; }
 .shell > .bottom-nav .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
@@ -108,7 +108,7 @@
   border-radius: 18px;
   background: rgba(77,124,255,.09);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
-  transition: transform 180ms ease-out;
+  transition: transform var(--motion-page) ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .shell > .bottom-nav .nav-indicator { transition: none; }
