@@ -15,7 +15,7 @@ try {
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox'] });
   for (const [width, height] of [[375,812], [390,844], [430,932], [375,400], [390,480], [430,400], [667,375]]) {
     for (const mode of ['browser', 'telegram', 'fullscreen']) {
-      const page = await browser.newPage({ viewport: { width, height } });
+      const page = await browser.newPage({ viewport: { width, height }, reducedMotion: 'reduce' });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       await page.route('https://telegram.org/**', route => route.fulfill({ contentType: 'application/javascript', body: `
         window.testBackCallbacks = new Set(); window.testEvents = new Map();
@@ -54,10 +54,10 @@ try {
       assert.equal(geometry.viewTop, safeTop);
       assert.equal(geometry.headerTop, safeTop + 12);
       assert.equal(geometry.scrim, `${safeTop}px`);
-      assert.equal(geometry.paddingBottom, '6px');
+      assert.equal(geometry.paddingBottom, '4px');
       assert.equal(geometry.viewBottom, height);
       assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().bottom), height - bottom);
-      assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().height),60);
+      assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().height),56);
       assert.ok(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().width < document.querySelector('.shell').clientWidth));
       // Scroll the real home page: the protected band never receives hero hits.
       await page.locator('.shell__content').evaluate(el => { el.scrollTop = el.scrollHeight; });
@@ -141,7 +141,7 @@ try {
           for(const event of ['fullscreenChanged','safeAreaChanged','contentSafeAreaChanged','viewportChanged']) for(const cb of testEvents.get(event)??[])cb();
         });
         assert.equal(await page.locator('.shell__viewport').evaluate(el => el.getBoundingClientRect().top), 0);
-        assert.equal(await page.locator('.bottom-nav').evaluate(el=>getComputedStyle(el).paddingBottom),'6px');
+        assert.equal(await page.locator('.bottom-nav').evaluate(el=>getComputedStyle(el).paddingBottom),'4px');
         assert.equal(await page.locator('.bottom-nav').evaluate(el=>innerHeight-el.getBoundingClientRect().bottom),8);
       }
       await page.reload();
@@ -203,4 +203,36 @@ try {
   await page.getByRole('button',{name:'К тестам',exact:true}).click();await page.locator('.tests-page').waitFor();
   console.log('PASS learning/exam journeys: instant check/locked answer, streak, skip, results, errors review, retake, reduced motion');
   await page.close();
+  const motion=await browser.newPage({viewport:{width:390,height:667},reducedMotion:'no-preference'});
+  await motion.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:''}));
+  await motion.goto('http://127.0.0.1:4179/');
+  const settle=()=>motion.waitForFunction(()=>document.querySelector('.page-view:not([hidden])').getAnimations().every(a=>a.playState==='finished'));
+  await settle();
+  const owners=await motion.locator('.shell__content').evaluate(el=>({css:getComputedStyle(el).scrollbarWidth,webkit:getComputedStyle(el,'::-webkit-scrollbar').display,overflow:getComputedStyle(el).overflowY}));
+  assert.deepEqual(owners,{css:'none',webkit:'none',overflow:'auto'});
+  await motion.locator('.shell__content').evaluate(el=>{el.scrollTop=200;});
+  await motion.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await motion.locator('.page-view:not([hidden])').evaluate(el=>el.getAnimations().length),0,'Scrolling must not replay page enter');
+  const tabsBefore=await motion.locator('.nav-item').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{x:r.x,width:r.width,height:r.height};}));
+  for(const tab of tabsBefore)assert.ok(tab.width>=44 && tab.height>=44);
+  await motion.locator('.nav-item').nth(1).evaluate(el=>el.click());
+  await motion.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  const moving=await motion.locator('.nav-indicator').evaluate(el=>({x:new DOMMatrix(getComputedStyle(el).transform).m41,width:el.getBoundingClientRect().width,animations:el.getAnimations().filter(a=>a.playState==='running').length}));
+  assert.ok(moving.x>0 && moving.x<moving.width+4,'Indicator must move continuously via transform');
+  assert.ok(moving.animations>0);
+  await settle();
+  await motion.locator('.tests-search input').fill('анатомия');
+  assert.equal(await motion.locator('.page-view:not([hidden])').evaluate(el=>el.getAnimations().length),0,'Typing must not replay enter');
+  await motion.locator('.nav-item').first().click();await settle();
+  assert.equal(await motion.locator('.shell__content').evaluate(el=>el.scrollTop),200,'Home scroll must restore');
+  await motion.locator('.nav-item').nth(1).click();await settle();
+  assert.equal(await motion.locator('.tests-search input').inputValue(),'анатомия','Query must survive tab transitions');
+  const tabsAfter=await motion.locator('.nav-item').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{x:r.x,width:r.width,height:r.height};}));
+  assert.deepEqual(tabsBefore,tabsAfter);
+  await motion.emulateMedia({reducedMotion:'reduce'});
+  await motion.locator('.nav-item').first().click();
+  assert.equal(await motion.locator('.nav-indicator').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+  assert.equal(await motion.locator('.page-view:not([hidden])').evaluate(el=>getComputedStyle(el).animationName),'none');
+  await motion.close();
+  console.log('PASS motion: continuous indicator, stable tab bounds, hidden scrollbar with working scroll, retained query/position, no replay on scroll/typing, reduced motion');
 } finally { await browser?.close(); server.kill(); }

@@ -1,0 +1,43 @@
+/* Actual DOM scroll owners. This changes indicators, never overflow behaviour. */
+.shell__content,
+.shell .test-session__content,
+.shell .test-mode-picker,
+.shell .test-result,
+.shell .subjects {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.shell__content::-webkit-scrollbar,
+.shell .test-session__content::-webkit-scrollbar,
+.shell .test-mode-picker::-webkit-scrollbar,
+.shell .test-result::-webkit-scrollbar,
+.shell .subjects::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+.page-view[hidden] { display: none; }
+.page-view:not([hidden]), .shell .test-result { animation: page-enter 180ms ease-out; }
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.shell .test-card, .shell .test-mode-card, .shell .test-choice {
+  transition: background-color 160ms, border-color 160ms, box-shadow 160ms;
+}
+.shell .test-card:active, .shell .test-mode-card:active, .shell .test-choice:active:not(:disabled) {
+  transform: none;
+  box-shadow: inset 0 0 0 1px rgba(77,124,255,.12);
+}
+.shell .test-session__action, .shell .start, .shell .icon-btn,
+.shell .review-arrow, .shell .test-filter, .shell .test-result__secondary {
+  transition: opacity 160ms, box-shadow 160ms, background-color 160ms;
+}
+.shell .test-session__action:active:not(:disabled), .shell .start:active,
+.shell .icon-btn:active, .shell .review-arrow:active, .shell .test-filter:active,
+.shell .test-result__secondary:active { opacity: .82; }
+.shell .progress i, .shell .test-progress i { transition: width 180ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .page-view:not([hidden]), .shell .test-result { animation: none; }
+  .shell .test-card, .shell .test-mode-card, .shell .test-choice,
+  .shell .test-session__action, .shell .start, .shell .icon-btn,
+  .shell .review-arrow, .shell .test-filter, .shell .test-result__secondary,
+  .shell .progress i, .shell .test-progress i { transition: none; }
+}

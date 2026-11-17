@@ -12,6 +12,7 @@ const items: Array<{ route: AppRoute; icon: string; label: string }> = [
 export function BottomNavigation({ active, onChange, hidden = false }: BottomNavigationProps) {
   return (
     <nav className={`bottom-nav ${hidden ? 'bottom-nav--hidden' : ''}`} aria-label="Основная навигация">
+      <span className="nav-indicator" aria-hidden="true" style={{ transform: `translateX(calc(${items.findIndex(item => item.route === active)} * (100% + 4px)))` }} />
       {items.map((item) => (
         <button className={`nav-item ${active === item.route ? 'active' : ''}`} aria-current={active === item.route ? 'page' : undefined} key={item.route} onClick={() => onChange(item.route)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={item.icon} /></svg>{item.label}
