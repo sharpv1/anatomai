@@ -1,0 +1,27 @@
+/* Shared visual vocabulary. Home colours and geometry remain the existing values. */
+:root {
+  --surface-card: #fff;
+  --text-primary: var(--ink);
+  --text-secondary: #62718a;
+  --border-control: #e4e9f1;
+  --radius-card: 18px;
+  --radius-control: 16px;
+  --radius-small: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --font-page-title: 28px;
+  --font-body: 15px;
+  --line-body: 1.4;
+  --success-surface: #ecfbf5;
+  --success-border: #8bd9c1;
+  --success-ink: #218263;
+  --error-surface: #fff1f1;
+  --error-border: #ffb6b6;
+  --error-ink: #b84250;
+  --motion-press: 130ms;
+  --motion-page: 180ms;
+  --motion-progress: 180ms;
+}

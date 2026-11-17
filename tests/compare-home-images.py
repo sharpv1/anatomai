@@ -4,7 +4,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw
 root=Path(os.environ.get('COMPARISON_DIR','/workspace/work/ui521-comparison'))
 report=json.loads((root/'geometry.json').read_text())
-for width in [375,390,430]:
+for width in sorted({row['width'] for row in report if 'position' in row}):
     for position in ['top','end']:
         images=[Image.open(root/f'{width}-{position}-{v}.png').convert('RGB') for v in ['before','after']]
         navs=[r['nav'] for r in report if r.get('position')==position and r['width']==width]

@@ -15,3 +15,11 @@ export function correctStreak(answers: TestAnswer[], confirmed: number | null, c
   }
   return streak;
 }
+
+// View-only summary: unsubmitted questions count as unanswered, never as correct.
+// The test engine and saved result are not modified.
+export function resultSummary(result: { total: number; score: number; answers: TestAnswer[] }) {
+  const wrong = result.answers.filter(answer => answer.selectedAnswer !== null && answer.selectedAnswer !== answer.correctAnswer).length;
+  const skipped = result.answers.filter(answer => answer.selectedAnswer === null).length + Math.max(0, result.total - result.answers.length);
+  return { percent: result.total ? Math.round(result.score / result.total * 100) : 0, wrong, skipped };
+}

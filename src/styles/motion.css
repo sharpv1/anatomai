@@ -14,13 +14,13 @@
 .shell .subjects::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
 .page-view[hidden] { display: none; }
-.page-view:not([hidden]), .shell .test-result { animation: page-enter 180ms ease-out; }
+.page-view:not([hidden]), .shell .test-result { animation: page-enter var(--motion-page) ease-out; }
 @keyframes page-enter {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .shell .test-card, .shell .test-mode-card, .shell .test-choice {
-  transition: background-color 160ms, border-color 160ms, box-shadow 160ms;
+  transition: background-color var(--motion-press), border-color var(--motion-press), box-shadow var(--motion-press);
 }
 .shell .test-card:active, .shell .test-mode-card:active, .shell .test-choice:active:not(:disabled) {
   transform: none;
@@ -28,16 +28,25 @@
 }
 .shell .test-session__action, .shell .start, .shell .icon-btn,
 .shell .review-arrow, .shell .test-filter, .shell .test-result__secondary {
-  transition: opacity 160ms, box-shadow 160ms, background-color 160ms;
+  transition: opacity var(--motion-press), box-shadow var(--motion-press), background-color var(--motion-press);
 }
 .shell .test-session__action:active:not(:disabled), .shell .start:active,
 .shell .icon-btn:active, .shell .review-arrow:active, .shell .test-filter:active,
 .shell .test-result__secondary:active { opacity: .82; }
-.shell .progress i, .shell .test-progress i { transition: width 180ms ease-out; }
+.shell .progress i, .shell .test-progress i { transition: width var(--motion-progress) ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .page-view:not([hidden]), .shell .test-result { animation: none; }
   .shell .test-card, .shell .test-mode-card, .shell .test-choice,
   .shell .test-session__action, .shell .start, .shell .icon-btn,
   .shell .review-arrow, .shell .test-filter, .shell .test-result__secondary,
   .shell .progress i, .shell .test-progress i { transition: none; }
+}
+
+.shell .test-result > .test-result__stats,
+.shell .test-result > .test-result__actions { animation: result-detail-enter var(--motion-page) ease-out both; }
+.shell .test-result > .test-result__stats { animation-delay: 40ms; }
+.shell .test-result > .test-result__actions { animation-delay: 80ms; }
+@keyframes result-detail-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .shell .test-result > .test-result__stats, .shell .test-result > .test-result__actions { animation: none; }
 }
