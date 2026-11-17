@@ -114,3 +114,15 @@ test('SDK absent, old event API, and missing insets fall back without exceptions
   e = environment({ safeAreaInset: undefined, contentSafeAreaInset: undefined }); a = createTelegramPlatformAdapter(); a.init();
   assert.match(e.root.style.get('--app-inset-bottom'), /env\(safe-area-inset-bottom/); a.dispose();
 });
+
+test('intentional pinch zoom does not reflow shell as if a keyboard opened', () => {
+  const e = environment(); const a = createTelegramPlatformAdapter(); a.init();
+  assert.equal(e.root.style.get('--tg-viewport-height'), '500px');
+  window.visualViewport.scale = 2; window.visualViewport.height = 250; window.visualViewport.offsetTop = 120;
+  window.visualViewport.dispatchEvent(new Event('resize'));
+  assert.equal(e.root.style.get('--tg-viewport-height'), '500px');
+  assert.equal(e.root.style.get('--app-viewport-offset-top'), '0px');
+  window.visualViewport.scale = 1; window.visualViewport.height = 320; window.visualViewport.offsetTop = 0;
+  window.visualViewport.dispatchEvent(new Event('resize'));
+  assert.equal(e.root.style.get('--tg-viewport-height'), '320px'); a.dispose();
+});
