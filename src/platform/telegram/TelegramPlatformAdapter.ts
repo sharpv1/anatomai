@@ -25,6 +25,7 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
   let initialized = false;
   let backCallback: (() => void) | undefined;
   let backAttached = false;
+  let unzoomedViewport: { height: number; offsetTop: number } | undefined;
   const root = () => document.documentElement;
   let subscriptions: typeof events = [];
   const invoke = (action: () => void) => { try { action(); } catch { /* Older clients may reject optional API calls. */ } };
@@ -55,10 +56,14 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
       root().style.setProperty(`--app-inset-${edge}`, value);
     }
     const positive = (value: number | undefined) => Number.isFinite(value) && value! > 0 ? value! : Infinity;
-    const height = Math.min(positive(telegram?.viewportHeight), positive(window.visualViewport?.height), positive(window.innerHeight));
+    const visual = window.visualViewport;
+    const zoomed = Math.abs((visual?.scale ?? 1) - 1) > 0.01;
+    if (!zoomed && visual) unzoomedViewport = { height: visual.height, offsetTop: visual.offsetTop ?? 0 };
+    // Pinch zoom is intentional accessibility input, not a keyboard/layout resize.
+    const height = Math.min(positive(telegram?.viewportHeight), positive(unzoomedViewport?.height), positive(window.innerHeight));
     pixel('--tg-viewport-height', Number.isFinite(height) ? height : 0);
     pixel('--tg-viewport-stable-height', telegram?.viewportStableHeight || height);
-    pixel('--app-viewport-offset-top', window.visualViewport?.offsetTop);
+    pixel('--app-viewport-offset-top', unzoomedViewport?.offsetTop);
     root().dataset.anatomaiViewport = 'true';
     root().dataset.telegramFullscreen = String(Boolean(telegram?.isFullscreen));
     root().dataset.telegramFullscreenAvailable = String(Boolean(telegram?.requestFullscreen && supports('8.0')));
@@ -123,6 +128,7 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
       window.visualViewport?.removeEventListener('scroll', sync);
       document.removeEventListener('visibilitychange', sync);
       telegram = undefined;
+      unzoomedViewport = undefined;
       initialized = false;
       for (const edge of ['top', 'bottom', 'left', 'right']) {
         root().style.removeProperty(`--tg-safe-${edge}`);

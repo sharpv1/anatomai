@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { questionsForTest } from './data';
+import { answerState, correctStreak } from './presentation';
 import { useTestSession } from './useTestSession';
 import type { TestDefinition, TestMode, TestResultData } from './types';
 import type { TelegramPlatform } from '../../platform/telegram/TelegramPlatformAdapter';
@@ -11,18 +12,65 @@ export function TestSession({ test, platform, onComplete, onExit }: TestSessionP
   const questions = questionsForTest(test.id);
   const [mode, setMode] = useState<TestMode | null>(null);
   const session = useTestSession(test, questions, mode ?? 'learning', onComplete);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [discipline, category = ''] = test.title.split(':');
   const exit = useCallback(() => { if (!session.isDirty || window.confirm('Выйти из теста? Прогресс будет потерян.')) onExit(); }, [onExit, session.isDirty]);
-  useEffect(() => { platform.showBackButton(exit); const onPopState = () => exit(); window.addEventListener('popstate', onPopState); return () => { platform.hideBackButton(); window.removeEventListener('popstate', onPopState); }; }, [exit, platform]);
+  useEffect(() => {
+    platform.showBackButton(exit);
+    window.addEventListener('popstate', exit);
+    return () => { platform.hideBackButton(); window.removeEventListener('popstate', exit); };
+  }, [exit, platform]);
+  useEffect(() => { contentRef.current?.scrollTo(0, 0); }, [session.questionIndex]);
 
-  if (!mode) return <section className="test-mode-picker"><div className="test-mode-picker__icon">{test.icon}</div><p className="eyebrow">{discipline.trim()}</p><h1>Выберите режим</h1><p className="test-mode-picker__hint">Один тест — два способа пройти материал. Режим можно выбрать заново при следующем запуске.</p><div className="test-mode-options"><button className="test-mode-card" onClick={() => setMode('learning')}><span>📖</span><strong>Обучение</strong><small>Выберите ответ и сразу получите объяснение. Идеально для повторения.</small><b>Без таймера · с подсказками</b></button><button className="test-mode-card" onClick={() => setMode('exam')}><span>🎯</span><strong>Экзамен</strong><small>Ответы проверяются только в конце. Пропуски и время учитываются в результате.</small><b>{questions.length} вопросов · {test.examMinutes} минут</b></button></div><button className="test-mode-back" onClick={onExit}>Вернуться к тестам</button></section>;
+  if (!mode) return <section className="test-mode-picker">
+    <div className="test-mode-picker__icon" aria-hidden="true">◫</div>
+    <p className="eyebrow">{discipline.trim()}</p><h1>Как будем практиковаться?</h1>
+    <p className="test-mode-picker__hint">{questions.length} вопросов · Выберите удобный темп</p>
+    <div className="test-mode-options">
+      <button className="test-mode-card" onClick={() => setMode('learning')}><span aria-hidden="true">✓</span><strong>Обучение</strong><small>Проверьте ответ и разберите объяснение перед следующим вопросом.</small><b>Без таймера · с объяснениями</b></button>
+      <button className="test-mode-card" onClick={() => setMode('exam')}><span aria-hidden="true">◷</span><strong>Экзамен</strong><small>Пройдите тест самостоятельно. Проверка — только в конце.</small><b>{test.examMinutes} минут · без подсказок</b></button>
+    </div>
+    <button className="test-mode-back" onClick={onExit}>Вернуться к тестам</button>
+  </section>;
   if (!session.question) return null;
-  const checked = session.confirmedAnswer !== null;
+  const learning = mode === 'learning';
+  const checked = learning && session.confirmedAnswer !== null;
   const isLast = session.questionIndex === questions.length - 1;
-  const canAdvance = mode === 'learning' ? checked : session.selectedAnswer !== null;
+  const streak = learning ? correctStreak(session.answers, session.confirmedAnswer, session.question.correctAnswer) : 0;
+  const completed = session.questionIndex + (checked ? 1 : 0);
+  const submit = () => {
+    if (learning && !checked) { session.confirmAnswer(); platform.hapticImpact(); }
+    else session.next();
+  };
+  const actionLabel = learning && !checked ? 'Проверить ответ' : isLast ? (learning ? 'Завершить тест' : 'Завершить экзамен') : 'Далее';
+
   return <section className="test-session" aria-label="Прохождение теста">
-    <header className="test-session__top"><button className="test-session__close" onClick={exit} aria-label="Закрыть тест">×</button><div className="test-session__meta"><span>{discipline.trim()} {category && <><i>·</i> {category.trim()}</>}</span><strong>Вопрос {session.questionIndex + 1} из {questions.length}</strong><i className="test-session__track"><b style={{ width: `${((session.questionIndex + 1) / questions.length) * 100}%` }} /></i></div><span className={`test-session__score ${mode === 'exam' && session.secondsLeft < 60 ? 'urgent' : ''}`}>{mode === 'exam' ? `⏱ ${session.timeLabel}` : `${session.score} верно`}</span></header>
-    <main className="test-session__content"><p className="test-session__mode">{mode === 'exam' ? 'Экзамен' : 'Режим обучения'}</p><h2>{session.question.text}</h2><div className="test-session__options" role="radiogroup" aria-label="Варианты ответа">{session.question.answers.map((answer, index) => { const correct = checked && index === session.question?.correctAnswer; const wrong = checked && index === session.confirmedAnswer && !correct; const selected = session.selectedAnswer === index; return <button key={answer} className={`test-choice ${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}`} aria-pressed={selected} disabled={checked} onClick={() => { platform.hapticSelection(); if (mode === 'learning') session.confirmAnswer(index); else session.selectAnswer(index); }}><span className="test-choice__radio"><i /></span><span className="test-choice__letter">{String.fromCharCode(65 + index)}</span><span className="test-choice__text">{answer}</span>{correct && <b className="test-choice__mark">✓</b>}{wrong && <b className="test-choice__mark">×</b>}</button>; })}</div>{checked && <div className="test-explanation" role="status"><strong>{session.confirmedAnswer === session.question.correctAnswer ? 'Правильно' : 'Разберём ответ'}</strong><p>{session.question.explanation}</p></div>}</main>
-    <footer className="test-session__footer"><div className="test-session__footer-actions">{(!canAdvance || mode === 'exam') && <button className="test-session__skip" onClick={session.skip}>{mode === 'exam' ? 'Пропустить' : 'Пропустить вопрос'}</button>}<button className="test-session__action" disabled={!canAdvance} onClick={() => { platform.hapticImpact(); session.next(); }}>{mode === 'exam' ? (isLast ? 'Завершить экзамен' : 'Далее') : (isLast ? 'Завершить тест' : 'Далее')}</button></div>{mode === 'exam' && <small className="test-session__footer-note">Ответы сохраняются на этом устройстве до завершения</small>}</footer>
+    <header className="test-session__top">
+      <button className="test-session__close" onClick={exit} aria-label="Назад к тестам">‹</button>
+      <div className="test-session__meta"><span title={test.title}>{discipline.trim()}{category && ` · ${category.trim()}`}</span><strong>Вопрос {session.questionIndex + 1} из {questions.length}</strong>
+        <div className="test-session__track" role="progressbar" aria-label="Завершённые вопросы" aria-valuemin={0} aria-valuemax={questions.length} aria-valuenow={completed}><b style={{ width: `${(completed / questions.length) * 100}%` }} /></div>
+      </div>
+      <span className={`test-session__score ${!learning && session.secondsLeft < 60 ? 'urgent' : ''}`}>{!learning ? `◷ ${session.timeLabel}` : `${session.score} верно`}</span>
+    </header>
+    <div className="test-session__content" ref={contentRef}>
+      <div className="test-question" key={session.question.id}>
+        <div className="test-session__context"><p className="test-session__mode">{learning ? 'Обучение' : 'Экзамен'}</p>{streak >= 2 && <span className="test-streak" role="status">{streak} подряд</span>}</div>
+        <h2 id="test-question-title">{session.question.text}</h2>
+        {/* Future media can be rendered here without changing the question's scroll boundary. */}
+        <div className="test-session__options" role="group" aria-labelledby="test-question-title">
+          {session.question.answers.map((answer, index) => {
+            const state = answerState(index, session.selectedAnswer, checked ? session.confirmedAnswer : null, session.question!.correctAnswer);
+            return <button key={`${session.question!.id}-${index}`} className={`test-choice ${state}`} aria-pressed={session.selectedAnswer === index} disabled={checked} onClick={() => session.selectAnswer(index)}>
+              <span className="test-choice__radio" aria-hidden="true"><i /></span><span className="test-choice__letter" aria-hidden="true">{String.fromCharCode(65 + index)}</span><span className="test-choice__text">{answer}</span><b className="test-choice__mark" aria-hidden="true">{state === 'correct' ? '✓' : state === 'wrong' ? '×' : ''}</b>
+            </button>;
+          })}
+        </div>
+        {checked && <div className={`test-explanation ${session.confirmedAnswer === session.question.correctAnswer ? 'test-explanation--correct' : ''}`} role="status"><strong>{session.confirmedAnswer === session.question.correctAnswer ? 'Правильно' : 'Есть что повторить'}</strong>{session.question.explanation && <p>{session.question.explanation}</p>}</div>}
+      </div>
+    </div>
+    <footer className="test-session__footer"><div className="test-session__footer-actions">
+      {!checked && <button className="test-session__skip" onClick={session.skip}>Пропустить вопрос</button>}
+      <button className="test-session__action" disabled={session.selectedAnswer === null} onClick={submit}>{actionLabel}</button>
+    </div>{!learning && <small className="test-session__footer-note">Ответы проверим после завершения экзамена</small>}</footer>
   </section>;
 }

@@ -1,0 +1,85 @@
+/* Tests 2.0: visual rules stay inside the existing test screens. */
+html[data-anatomai-viewport="true"] { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+.shell button, .shell input { touch-action: manipulation; }
+.tests-page { min-width: 0; }
+.tests-page .tests-head { margin-bottom: 20px; }
+.tests-page .tests-head h1 { font-size: 30px; letter-spacing: -.8px; }
+.tests-page .tests-summary strong { color: var(--blue); }
+.tests-page .tests-search { height: 48px; border-radius: 16px; }
+.tests-page .tests-search input { min-width: 0; font-size: 16px; line-height: 1.4; }
+.tests-page .test-filters { flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.tests-page .test-filter { min-height: 40px; font-size: 12px; }
+.tests-page .test-card { padding: 16px 14px; gap: 12px; border-radius: 18px; transition: background-color 150ms, transform 150ms; }
+.tests-page .test-card:active { background: #f3f6ff; transform: scale(.99); }
+.tests-page .test-card-title { font-size: 15px; line-height: 1.35; font-weight: 650; overflow-wrap: anywhere; }
+.tests-page .test-card-meta { font-size: 12px; line-height: 1.4; }
+.tests-page .test-card-foot { margin-top: 12px; }
+.tests-page .test-progress { height: 4px; }
+.tests-page .test-level, .tests-page .test-card-foot small { font-size: 11px; }
+.tests-page .test-card-icon { width: 44px; height: 44px; flex-basis: 44px; border-radius: 14px; }
+
+.test-session .test-session__top { grid-template-columns: 44px minmax(0,1fr) auto; gap: 10px; align-items: center; }
+.test-session .test-session__close { width: 44px; height: 44px; border-radius: 14px; font-size: 28px; color: var(--ink); }
+.test-session .test-session__meta > span { font-size: 11px; }
+.test-session .test-session__meta > strong { font-size: 13px; line-height: 1.35; }
+.test-session .test-session__track { display: block; height: 4px; margin-top: 8px; border-radius: 99px; overflow: hidden; background: #e6ebf3; }
+.test-session .test-session__track b { display: block; height: 100%; background: var(--blue); border-radius: inherit; transition: width 180ms ease-out; }
+.test-session .test-session__score { font-size: 11px; padding: 0; }
+.test-session .test-session__context { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; margin-bottom: 12px; }
+.test-session .test-session__mode { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.test-streak { font-size: 11px; color: #248c70; background: #eaf8f2; border-radius: 99px; padding: 5px 9px; white-space: nowrap; }
+.test-session .test-session__content h2 { font-size: clamp(22px, 6vw, 28px); line-height: 1.22; font-weight: 700; letter-spacing: -.55px; margin: 0 0 22px; overflow-wrap: anywhere; }
+.test-question { animation: test-question-enter 180ms ease-out; }
+.test-session .test-session__options { gap: 10px; }
+.test-session .test-choice { grid-template-columns: 22px 24px minmax(0,1fr) 16px; gap: 9px; min-height: 60px; padding: 14px 12px; border-radius: 18px; box-shadow: none; transition: background-color 150ms, border-color 150ms, transform 150ms; }
+.test-session .test-choice:hover:not(:disabled) { border-color: #b8c8ed; }
+.test-session .test-choice:active:not(:disabled) { transform: scale(.99); }
+.test-session .test-choice:disabled { cursor: default; opacity: 1; }
+.test-session .test-choice__text { font-size: 15px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+.test-session .test-choice__letter { background: #f2f5f9; color: var(--muted); font-size: 11px; }
+.test-session .test-choice__mark { width: 16px; font-size: 17px; color: inherit; }
+.test-session .test-choice.selected { background: #f3f6ff; border-color: #8eaaff; }
+.test-session .test-choice.correct { background: #ecfbf5; border-color: #8bd9c1; }
+.test-session .test-choice.wrong { background: #fff1f1; border-color: #ffb6b6; }
+.test-session .test-explanation { margin-top: 16px; padding: 14px; background: #fff8e8; border: 1px solid #f2e4c3; border-radius: 16px; }
+.test-session .test-explanation--correct { background: #ecfbf5; border-color: #bce8d9; }
+.test-session .test-explanation strong { font-size: 13px; color: var(--ink); }
+.test-session .test-explanation p { font-size: 13px; line-height: 1.5; color: #667289; margin: 6px 0 0; overflow-wrap: anywhere; }
+.test-session .test-session__action, .test-result .test-session__action { min-height: 52px; border-radius: 16px; box-shadow: none; font-size: 15px; font-weight: 650; }
+.test-session .test-session__skip { min-height: 40px; padding: 8px; font-size: 13px; }
+.test-session .test-session__footer-note { font-size: 11px; }
+
+.test-mode-picker .test-mode-picker__icon { width: 56px; height: 56px; border-radius: 18px; font-size: 28px; margin-bottom: 16px; }
+.test-mode-picker h1 { font-size: 25px; line-height: 1.2; letter-spacing: -.6px; }
+.test-mode-picker .test-mode-picker__hint { font-size: 13px; }
+.test-mode-picker .test-mode-card { padding: 18px 16px; border-radius: 18px; }
+.test-mode-picker .test-mode-card strong { font-size: 16px; }
+.test-mode-picker .test-mode-card small { font-size: 13px; line-height: 1.45; }
+.test-mode-picker .test-mode-card b { font-size: 11px; }
+.test-mode-picker .test-mode-back { min-height: 44px; }
+
+.test-result .test-result__badge { width: 88px; height: 88px; flex: 0 0 auto; border-radius: 28px; margin: 4px 0 18px; }
+.test-result .test-result__badge strong { font-size: 28px; }
+.test-result h1 { font-size: 25px; line-height: 1.2; letter-spacing: -.6px; }
+.test-result .test-result__test { font-size: 13px; line-height: 1.45; margin: 10px 0 20px; }
+.test-result .test-result__stats { flex: 0 0 auto; border-radius: 18px; }
+.test-result .test-result__stats strong { font-size: 24px; }
+.test-result .test-result__stats span { font-size: 11px; }
+.test-result__caption { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+.test-result .test-result__time { font-size: 12px; margin-top: 8px; }
+.test-result .test-result__actions { flex: 0 0 auto; margin-top: 22px; gap: 4px; }
+.test-result .test-result__secondary { min-height: 44px; border-radius: 14px; }
+.test-result .test-review { flex: 0 0 auto; }
+.test-result .test-review__item { padding: 14px; border-radius: 16px; }
+.test-result .test-review__item p { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.test-result .test-review__item span, .test-result .test-review__item small { font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+
+@keyframes test-question-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-height: 500px) {
+  .test-session .test-session__context { margin-bottom: 8px; }
+  .test-session .test-session__content h2 { font-size: 22px; margin-bottom: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .test-question { animation: none; }
+  .test-session .test-choice, .test-session .test-session__track b, .tests-page .test-card { transition: none; }
+}

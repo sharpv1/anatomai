@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage';
 import { TestsPage } from './pages/TestsPage';
 import { createTelegramPlatformAdapter } from './platform/telegram/TelegramPlatformAdapter';
 import './styles/app.css';
+import './features/tests/TestsExperience.css';
 
 export default function App() {
   const platform = useMemo(() => createTelegramPlatformAdapter(), []);

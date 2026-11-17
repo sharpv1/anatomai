@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
 
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4179', '--strictPort'], { stdio: ['ignore', 'pipe', 'pipe'] });
 let browser;
@@ -32,6 +34,7 @@ try {
       const expectedBack = mode === 'browser' ? 0 : 1;
       await page.goto('http://127.0.0.1:4179/');
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), mode === 'telegram');
+      assert.ok(await page.locator('.shell').evaluate(el => el.scrollWidth <= el.clientWidth));
       const geometry = await page.evaluate(() => {
         const view = document.querySelector('.shell__viewport').getBoundingClientRect();
         const header = document.querySelector('.topbar').getBoundingClientRect();
@@ -54,6 +57,7 @@ try {
       await page.locator('.nav-item').nth(1).click();
       assert.equal(await page.locator('.shell__content').evaluate(el => el.scrollTop), 0);
       // Keyboard simulation: current visual height shrinks while SDK stable height remains stale.
+      assert.ok(await page.locator('.tests-search input').evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 16));
       await page.locator('.tests-search input').focus();
       const keyboardHeight = Math.max(280, height - 260);
       await page.setViewportSize({ width, height: keyboardHeight });
@@ -75,6 +79,10 @@ try {
       await page.locator('.test-mode-card').first().click();
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), false);
       await page.locator('.test-choice').first().click();
+      assert.equal(await page.locator('.test-choice.correct,.test-choice.wrong').count(),0);
+      assert.equal(await page.locator('.test-explanation').count(),0);
+      assert.equal(await page.locator('.test-session__action').innerText(),'Проверить ответ');
+      await page.locator('.test-session__action').click();
       await page.waitForFunction(() => [...document.querySelectorAll('.test-choice.correct,.test-choice.wrong')].every(el => ['rgb(236, 251, 245)', 'rgb(255, 241, 241)'].includes(getComputedStyle(el).backgroundColor)));
       const colors = await page.locator('.test-choice').evaluateAll(els => els.filter(el=>el.matches('.correct,.wrong')).map(el=>({card:getComputedStyle(el).backgroundColor,text:getComputedStyle(el.querySelector('.test-choice__text')).backgroundColor,radio:getComputedStyle(el.querySelector('.test-choice__radio')).backgroundColor})));
       assert.equal(colors.length, 2);
@@ -85,6 +93,7 @@ try {
         document.querySelector('.test-session__content h2').textContent = 'Длинный вопрос по анатомии. '.repeat(24);
         document.querySelectorAll('.test-choice__text').forEach(el => {el.textContent = 'Длинный вариант ответа с медицинскими терминами. '.repeat(10);});
       });
+      assert.ok(await page.locator('.test-session__content').evaluate(el => el.scrollWidth <= el.clientWidth));
       const before = await page.evaluate(() => {
         const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return {top:r.top, bottom:r.bottom}; };
         return {header:rect('.test-session__top'), footer:rect('.test-session__footer')};
@@ -124,4 +133,51 @@ try {
       await page.close();
     }
   }
+  // Full learning/exam journeys use the existing immutable question fixtures.
+  const js = ts.transpileModule(readFileSync(new URL('../src/features/tests/data.ts', import.meta.url), 'utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+  const {questionsForTest}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+  const questions=questionsForTest('anatomy');
+  const page=await browser.newPage({viewport:{width:390,height:667},reducedMotion:'reduce'});
+  await page.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:''}));
+  await page.goto('http://127.0.0.1:4179/');
+  await page.locator('.nav-item').nth(1).click(); await page.locator('.test-card').first().click(); await page.locator('.test-mode-card').first().click();
+  assert.equal(await page.locator('.test-session__action').isDisabled(),true);
+  for(let i=0;i<questions.length;i++) {
+    assert.equal(await page.locator('.test-session__track').getAttribute('aria-valuenow'),String(i));
+    if(i===2) {await page.locator('.test-session__skip').click();continue;}
+    if(i===0) {await page.locator('.test-choice').first().click();await page.locator('.test-choice').nth(2).click();}
+    const answer=i===3 ? (questions[i].correctAnswer+1)%questions[i].answers.length : questions[i].correctAnswer;
+    await page.locator('.test-choice').nth(answer).click();
+    assert.equal(await page.locator('.test-explanation').count(),0);
+    assert.equal(await page.locator('.test-choice.correct,.test-choice.wrong').count(),0);
+    assert.equal(await page.locator('.test-session__action').innerText(),'Проверить ответ');
+    await page.locator('.test-session__action').click();
+    assert.equal(await page.locator('.test-choice:disabled').count(),questions[i].answers.length);
+    assert.equal(await page.locator('.test-choice.correct').count(),1);
+    assert.equal(await page.locator('.test-session__track').getAttribute('aria-valuenow'),String(i+1));
+    if(i===1) assert.equal(await page.locator('.test-streak').innerText(),'2 подряд');
+    if(i===3) assert.equal(await page.locator('.test-streak').count(),0);
+    assert.equal(await page.locator('.test-question').evaluate(el=>getComputedStyle(el).animationName),'none');
+    await page.locator('.test-session__action').click();
+  }
+  await page.locator('.test-result').waitFor();
+  assert.equal(await page.locator('.test-result__badge strong').innerText(),'60%');
+  assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['3','1','1']);
+  await page.getByRole('button',{name:'Разобрать ошибки',exact:true}).click();
+  assert.equal(await page.locator('.test-review__item').count(),2);
+  await page.getByRole('button',{name:'Пройти ещё раз',exact:true}).click();
+  await page.locator('.test-mode-card').nth(1).click();
+  for(let i=0;i<questions.length;i++) {
+    if(i===2){await page.locator('.test-session__skip').click();continue;}
+    const answer=i===1 ? (questions[i].correctAnswer+1)%questions[i].answers.length : questions[i].correctAnswer;
+    await page.locator('.test-choice').nth(answer).click();
+    assert.equal(await page.locator('.test-choice.correct,.test-choice.wrong,.test-explanation,.test-streak').count(),0);
+    assert.notEqual(await page.locator('.test-session__action').innerText(),'Проверить ответ');
+    await page.locator('.test-session__action').click();
+  }
+  await page.locator('.test-result').waitFor();
+  assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['3','1','1']);
+  await page.getByRole('button',{name:'К тестам',exact:true}).click();await page.locator('.tests-page').waitFor();
+  console.log('PASS learning/exam journeys: explicit confirmation, streak, skip, results, errors review, retake, reduced motion');
+  await page.close();
 } finally { await browser?.close(); server.kill(); }
