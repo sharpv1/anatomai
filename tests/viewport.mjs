@@ -35,6 +35,14 @@ try {
       await page.goto('http://127.0.0.1:4179/');
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), mode === 'telegram');
       assert.ok(await page.locator('.shell').evaluate(el => el.scrollWidth <= el.clientWidth));
+      assert.equal(await page.locator('.hero svg,.hero .streak,.hero .micro-badge,.icon-btn .dot').count(),0);
+      assert.ok(await page.locator('.icon-btn').evaluate(el=>el.getBoundingClientRect().width>=44 && el.getBoundingClientRect().height>=44));
+      assert.ok(await page.locator('meta[name="viewport"]').getAttribute('content').then(value=>value.includes('user-scalable=no')));
+      const gestures=await page.locator('.shell').evaluate(el=>{
+        const fire=(type,touches)=>{const e=new Event(type,{bubbles:true,cancelable:true});if(touches)Object.defineProperty(e,'touches',{value:touches});el.dispatchEvent(e);return e.defaultPrevented;};
+        return {gesture:fire('gesturestart'),double:fire('dblclick'),single:fire('touchmove',[{clientX:1,clientY:2}]),multi:fire('touchmove',[{},{}])};
+      });
+      assert.deepEqual(gestures,{gesture:true,double:true,single:false,multi:true});
       const geometry = await page.evaluate(() => {
         const view = document.querySelector('.shell__viewport').getBoundingClientRect();
         const header = document.querySelector('.topbar').getBoundingClientRect();
@@ -44,16 +52,20 @@ try {
       assert.equal(geometry.viewTop, safeTop);
       assert.equal(geometry.headerTop, safeTop + 12);
       assert.equal(geometry.scrim, `${safeTop}px`);
-      assert.equal(geometry.paddingBottom, `${bottom}px`);
-      assert.equal(geometry.viewBottom, geometry.navTop);
+      assert.equal(geometry.paddingBottom, '8px');
+      assert.equal(geometry.viewBottom, height);
+      assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().bottom), height - bottom);
+      assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().height),64);
+      assert.ok(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().width < document.querySelector('.shell').clientWidth));
       // Scroll the real home page: the protected band never receives hero hits.
       await page.locator('.shell__content').evaluate(el => { el.scrollTop = el.scrollHeight; });
       const home = await page.evaluate(() => {
         const c = document.querySelector('.shell__content'); const tip = document.querySelector('.tip').getBoundingClientRect();
         const band = document.elementFromPoint(innerWidth / 2, 10);
-        return {scroll:c.scrollTop, tipBottom:tip.bottom, bottom:c.getBoundingClientRect().bottom, bandHasHero:!!band?.closest('.hero')};
+        return {scroll:c.scrollTop, tipBottom:tip.bottom, bottom:document.querySelector('.bottom-nav').getBoundingClientRect().top, bandHasHero:!!band?.closest('.hero')};
       });
       assert.ok(home.scroll > 0); assert.ok(home.tipBottom <= home.bottom + 1); if(safeTop > 0) assert.equal(home.bandHasHero, false);
+      for(const idx of [2,3,0]) {await page.locator('.nav-item').nth(idx).click();assert.equal(await page.locator('.nav-item').nth(idx).getAttribute('aria-current'),'page');}
       await page.locator('.nav-item').nth(1).click();
       assert.equal(await page.locator('.shell__content').evaluate(el => el.scrollTop), 0);
       // Keyboard simulation: current visual height shrinks while SDK stable height remains stale.
@@ -79,10 +91,8 @@ try {
       await page.locator('.test-mode-card').first().click();
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), false);
       await page.locator('.test-choice').first().click();
-      assert.equal(await page.locator('.test-choice.correct,.test-choice.wrong').count(),0);
-      assert.equal(await page.locator('.test-explanation').count(),0);
-      assert.equal(await page.locator('.test-session__action').innerText(),'Проверить ответ');
-      await page.locator('.test-session__action').click();
+      assert.equal(await page.locator('.test-session__action').innerText(),'Далее');
+      assert.equal(await page.locator('.test-choice:disabled').count(),4);
       await page.waitForFunction(() => [...document.querySelectorAll('.test-choice.correct,.test-choice.wrong')].every(el => ['rgb(236, 251, 245)', 'rgb(255, 241, 241)'].includes(getComputedStyle(el).backgroundColor)));
       const colors = await page.locator('.test-choice').evaluateAll(els => els.filter(el=>el.matches('.correct,.wrong')).map(el=>({card:getComputedStyle(el).backgroundColor,text:getComputedStyle(el.querySelector('.test-choice__text')).backgroundColor,radio:getComputedStyle(el.querySelector('.test-choice__radio')).backgroundColor})));
       assert.equal(colors.length, 2);
@@ -124,6 +134,7 @@ try {
         });
         assert.equal(await page.locator('.shell__viewport').evaluate(el => el.getBoundingClientRect().top), 0);
         assert.equal(await page.locator('.bottom-nav').evaluate(el=>getComputedStyle(el).paddingBottom),'8px');
+        assert.equal(await page.locator('.bottom-nav').evaluate(el=>innerHeight-el.getBoundingClientRect().bottom),8);
       }
       await page.reload();
       assert.equal(await page.evaluate(() => testBackCallbacks.size), 0);
@@ -141,17 +152,19 @@ try {
   await page.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:''}));
   await page.goto('http://127.0.0.1:4179/');
   await page.locator('.nav-item').nth(1).click(); await page.locator('.test-card').first().click(); await page.locator('.test-mode-card').first().click();
-  assert.equal(await page.locator('.test-session__action').isDisabled(),true);
+  assert.equal(await page.locator('.test-session__action').count(),0);
   for(let i=0;i<questions.length;i++) {
     assert.equal(await page.locator('.test-session__track').getAttribute('aria-valuenow'),String(i));
     if(i===2) {await page.locator('.test-session__skip').click();continue;}
-    if(i===0) {await page.locator('.test-choice').first().click();await page.locator('.test-choice').nth(2).click();}
     const answer=i===3 ? (questions[i].correctAnswer+1)%questions[i].answers.length : questions[i].correctAnswer;
     await page.locator('.test-choice').nth(answer).click();
-    assert.equal(await page.locator('.test-explanation').count(),0);
-    assert.equal(await page.locator('.test-choice.correct,.test-choice.wrong').count(),0);
-    assert.equal(await page.locator('.test-session__action').innerText(),'Проверить ответ');
-    await page.locator('.test-session__action').click();
+    assert.equal(await page.locator('.test-choice.correct').count(),1);
+    assert.notEqual(await page.locator('.test-session__action').innerText(),'Проверить ответ');
+    const locked = await page.locator('.test-choice[aria-pressed="true"]').innerText();
+    const score = await page.locator('.test-session__score').innerText();
+    await page.locator('.test-choice').nth((answer+1)%questions[i].answers.length).evaluate(el=>el.click());
+    assert.equal(await page.locator('.test-choice[aria-pressed="true"]').innerText(),locked);
+    assert.equal(await page.locator('.test-session__score').innerText(),score);
     assert.equal(await page.locator('.test-choice:disabled').count(),questions[i].answers.length);
     assert.equal(await page.locator('.test-choice.correct').count(),1);
     assert.equal(await page.locator('.test-session__track').getAttribute('aria-valuenow'),String(i+1));
@@ -170,7 +183,9 @@ try {
   for(let i=0;i<questions.length;i++) {
     if(i===2){await page.locator('.test-session__skip').click();continue;}
     const answer=i===1 ? (questions[i].correctAnswer+1)%questions[i].answers.length : questions[i].correctAnswer;
+    await page.locator('.test-choice').nth((answer+1)%questions[i].answers.length).click();
     await page.locator('.test-choice').nth(answer).click();
+    assert.equal(await page.locator('.test-choice[aria-pressed="true"]').count(),1);
     assert.equal(await page.locator('.test-choice.correct,.test-choice.wrong,.test-explanation,.test-streak').count(),0);
     assert.notEqual(await page.locator('.test-session__action').innerText(),'Проверить ответ');
     await page.locator('.test-session__action').click();
@@ -178,6 +193,6 @@ try {
   await page.locator('.test-result').waitFor();
   assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['3','1','1']);
   await page.getByRole('button',{name:'К тестам',exact:true}).click();await page.locator('.tests-page').waitFor();
-  console.log('PASS learning/exam journeys: explicit confirmation, streak, skip, results, errors review, retake, reduced motion');
+  console.log('PASS learning/exam journeys: instant check/locked answer, streak, skip, results, errors review, retake, reduced motion');
   await page.close();
 } finally { await browser?.close(); server.kill(); }
