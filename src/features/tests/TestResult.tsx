@@ -22,22 +22,26 @@ export function TestResult({ result, platform, onBack, onRetake }: TestResultPro
   const hasReview = reviewAnswers.length > 0;
   const title = percent === 100 ? 'Все ответы верные' : percent >= 80 ? 'Отличный результат' : percent >= 60 ? 'Хорошая база' : 'Материал стоит повторить';
   return <section className="test-result" aria-label="Результат теста">
+    <div className="test-result__summary">
     <p className="eyebrow">{result.mode === 'exam' ? 'Экзамен завершён' : 'Тест завершён'}</p>
     <div className={`test-result__badge ${percent < 60 ? 'low' : ''}`}><strong>{percent}%</strong></div>
     <h1>{title}</h1>
     <p className="test-result__test">{result.test.title}</p>
     <div className="test-result__progress" role="progressbar" aria-label="Правильные ответы" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ transform: `scaleX(${Math.max(0, Math.min(100, percent)) / 100})` }} /></div>
+    </div>
+    <div className="test-result__details">
     <div className="test-result__stats">
       <div><strong>{result.score}</strong><span>Правильных</span></div>
       <div><strong>{wrong}</strong><span>Ошибок</span></div>
       <div><strong>{skipped}</strong><span>Пропущено</span></div>
     </div>
-    <p className="test-result__caption">Верных ответов · {result.score} из {result.total}</p>
+    <p className="test-result__caption">Вопросов: {result.total} · Верных: {result.score}</p>
     <p className="test-result__time">Фактическое время: <strong>{Math.floor(result.durationSeconds / 60)} мин {result.durationSeconds % 60} сек</strong></p>
     <div className="test-result__actions">
       {hasReview && <button className="test-session__action" aria-expanded={showReview} aria-controls="test-review" onClick={() => setShowReview(value => !value)}>{showReview ? 'Скрыть разбор' : 'Разобрать ошибки'}</button>}
       <button className="test-result__secondary" onClick={onRetake}>Пройти ещё раз</button>
-      <button className={hasReview ? 'test-result__secondary' : 'test-session__action'} onClick={onBack}>К тестам</button>
+      <button className="test-result__back" onClick={onBack}>К тестам</button>
+    </div>
     </div>
     {showReview && <div className="test-review" id="test-review" aria-label="Разбор ответов">
       {reviewAnswers.map(answer => {
