@@ -1,17 +1,16 @@
-/* The test flow owns viewport dimensions and safe-area exactly once. */
-.shell--test-flow > .test-session,
-.shell--test-flow > .test-mode-picker,
-.shell--test-flow > .test-result {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
+/* The shell owns safe-area; test screens fill its remaining content box. */
+.shell--test-flow .test-session,
+.shell--test-flow .test-mode-picker,
+.shell--test-flow .test-result {
+  position: relative;
+  inset: auto;
   box-sizing: border-box;
-  width: min(100%, 430px);
-  height: var(--tg-viewport-height, 100dvh);
+  width: 100%;
+  height: 100%;
   min-height: 0;
   max-height: none;
-  margin: 0 auto;
-  padding: calc(12px + var(--app-inset-top)) calc(18px + var(--app-inset-right)) calc(14px + var(--app-inset-bottom)) calc(18px + var(--app-inset-left));
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -19,7 +18,7 @@
   overscroll-behavior: contain;
   background: var(--bg);
 }
-.shell--test-flow > .test-session { overflow: hidden; }
+.shell--test-flow .test-session { overflow: hidden; }
 .shell--test-flow .test-session__top, .shell--test-flow .test-session__footer { flex: 0 0 auto; width: 100%; }
 .shell--test-flow .test-session__content {
   width: 100%;

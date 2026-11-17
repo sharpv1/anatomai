@@ -11,13 +11,12 @@ try {
     server.on('exit', code => reject(new Error(`Preview exited: ${code}`)));
   });
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox'] });
-  for (const [width, height] of [[320,480], [375,400], [390,667], [667,375]]) {
+  for (const [width, height] of [[375,812], [390,844], [430,932], [375,400], [390,480], [430,400], [667,375]]) {
     for (const mode of ['browser', 'telegram', 'fullscreen']) {
       const page = await browser.newPage({ viewport: { width, height } });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       await page.route('https://telegram.org/**', route => route.fulfill({ contentType: 'application/javascript', body: `
-        window.testBackCallbacks = new Set();
-        window.testEvents = new Map();
+        window.testBackCallbacks = new Set(); window.testEvents = new Map();
         window.Telegram = {WebApp: {
           initData: ${JSON.stringify(mode === 'browser' ? '' : 'test')}, platform: '${mode === 'browser' ? 'unknown' : 'ios'}', version: '8.0',
           isFullscreen: ${mode === 'fullscreen'}, viewportHeight: ${height}, viewportStableHeight: ${height},
@@ -28,16 +27,63 @@ try {
           offEvent(e,c){testEvents.get(e)?.delete(c)},
           BackButton:{show(){},hide(){},onClick(c){testBackCallbacks.add(c)},offClick(c){testBackCallbacks.delete(c)}}}};
       ` }));
+      const safeTop = mode === 'fullscreen' ? 104 : 0;
+      const bottom = mode === 'browser' ? 8 : 34;
+      const expectedBack = mode === 'browser' ? 0 : 1;
       await page.goto('http://127.0.0.1:4179/');
+      assert.equal(await page.locator('.fullscreen-toggle').isVisible(), mode === 'telegram');
+      const geometry = await page.evaluate(() => {
+        const view = document.querySelector('.shell__viewport').getBoundingClientRect();
+        const header = document.querySelector('.topbar').getBoundingClientRect();
+        const nav = document.querySelector('.bottom-nav'); const n = nav.getBoundingClientRect();
+        return {viewTop:view.top, headerTop:header.top, navTop:n.top, viewBottom:view.bottom, paddingBottom:getComputedStyle(nav).paddingBottom, scrim:getComputedStyle(document.querySelector('.shell'),'::before').height};
+      });
+      assert.equal(geometry.viewTop, safeTop);
+      assert.equal(geometry.headerTop, safeTop + 12);
+      assert.equal(geometry.scrim, `${safeTop}px`);
+      assert.equal(geometry.paddingBottom, `${bottom}px`);
+      assert.equal(geometry.viewBottom, geometry.navTop);
+      // Scroll the real home page: the protected band never receives hero hits.
+      await page.locator('.shell__content').evaluate(el => { el.scrollTop = el.scrollHeight; });
+      const home = await page.evaluate(() => {
+        const c = document.querySelector('.shell__content'); const tip = document.querySelector('.tip').getBoundingClientRect();
+        const band = document.elementFromPoint(innerWidth / 2, 10);
+        return {scroll:c.scrollTop, tipBottom:tip.bottom, bottom:c.getBoundingClientRect().bottom, bandHasHero:!!band?.closest('.hero')};
+      });
+      assert.ok(home.scroll > 0); assert.ok(home.tipBottom <= home.bottom + 1); if(safeTop > 0) assert.equal(home.bandHasHero, false);
       await page.locator('.nav-item').nth(1).click();
+      assert.equal(await page.locator('.shell__content').evaluate(el => el.scrollTop), 0);
+      // Keyboard simulation: current visual height shrinks while SDK stable height remains stale.
+      await page.locator('.tests-search input').focus();
+      const keyboardHeight = Math.max(280, height - 260);
+      await page.setViewportSize({ width, height: keyboardHeight });
+      await page.waitForFunction(h => Math.abs(document.querySelector('.shell').getBoundingClientRect().height - h) < 1, keyboardHeight);
+      assert.ok(await page.locator('.bottom-nav').evaluate((el, h) => el.getBoundingClientRect().bottom <= h + 1, keyboardHeight));
+      await page.locator('.tests-search input').fill('анатомия');
+      assert.equal(await page.locator('.test-card').count(), 1);
+      await page.locator('.tests-search input').fill('');
+      await page.locator('.tests-search input').blur();
+      await page.setViewportSize({ width, height });
+      await page.waitForFunction(h => Math.abs(document.querySelector('.shell').getBoundingClientRect().height - h) < 1, height);
+      // Long catalog fixture changes only the test DOM, not application data.
+      await page.locator('.test-list').evaluate(el => { const card = el.firstElementChild; for(let i=0;i<12;i++){const copy=card.cloneNode(true);copy.dataset.fixture='true';el.append(copy);} });
+      await page.locator('.shell__content').evaluate(el => { el.scrollTop = el.scrollHeight; });
+      assert.ok(await page.locator('.shell__content').evaluate(el => el.scrollTop > 0));
+      await page.locator('[data-fixture]').evaluateAll(els => els.forEach(el=>el.remove()));
+      await page.locator('.shell__content').evaluate(el => { el.scrollTop = 0; });
       await page.locator('.test-card').first().click();
       await page.locator('.test-mode-card').first().click();
+      assert.equal(await page.locator('.fullscreen-toggle').isVisible(), false);
       await page.locator('.test-choice').first().click();
-      const expected = mode === 'browser' ? 0 : 1;
-      assert.equal(await page.evaluate(() => testBackCallbacks.size), expected);
+      await page.waitForFunction(() => [...document.querySelectorAll('.test-choice.correct,.test-choice.wrong')].every(el => ['rgb(236, 251, 245)', 'rgb(255, 241, 241)'].includes(getComputedStyle(el).backgroundColor)));
+      const colors = await page.locator('.test-choice').evaluateAll(els => els.filter(el=>el.matches('.correct,.wrong')).map(el=>({card:getComputedStyle(el).backgroundColor,text:getComputedStyle(el.querySelector('.test-choice__text')).backgroundColor,radio:getComputedStyle(el.querySelector('.test-choice__radio')).backgroundColor})));
+      assert.equal(colors.length, 2);
+      assert.deepEqual(colors.map(c=>c.card).sort(), ['rgb(236, 251, 245)','rgb(255, 241, 241)'].sort());
+      for(const color of colors) { assert.equal(color.text,'rgba(0, 0, 0, 0)');assert.equal(color.radio,'rgba(0, 0, 0, 0)'); }
+      assert.equal(await page.evaluate(() => testBackCallbacks.size), expectedBack);
       await page.evaluate(() => {
-        const content = document.querySelector('.test-session__content');
-        const long = document.createElement('div'); long.style.height = '1600px'; content.append(long);
+        document.querySelector('.test-session__content h2').textContent = 'Длинный вопрос по анатомии. '.repeat(24);
+        document.querySelectorAll('.test-choice__text').forEach(el => {el.textContent = 'Длинный вариант ответа с медицинскими терминами. '.repeat(10);});
       });
       const before = await page.evaluate(() => {
         const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return {top:r.top, bottom:r.bottom}; };
@@ -45,20 +91,37 @@ try {
       });
       await page.locator('.test-session__content').evaluate(el => { el.scrollTop = el.scrollHeight; });
       const after = await page.evaluate(() => {
-        const content = document.querySelector('.test-session__content');
-        const footer = document.querySelector('.test-session__footer').getBoundingClientRect();
-        const header = document.querySelector('.test-session__top').getBoundingClientRect();
-        return {top:header.top, bottom:footer.bottom, scroll:content.scrollTop, height:content.clientHeight, documentScroll:document.scrollingElement.scrollTop};
+        const c = document.querySelector('.test-session__content');
+        const f = document.querySelector('.test-session__footer').getBoundingClientRect();
+        const h = document.querySelector('.test-session__top').getBoundingClientRect();
+        return {top:h.top, bottom:f.bottom, scroll:c.scrollTop, height:c.clientHeight, documentScroll:document.scrollingElement.scrollTop};
       });
       assert.ok(after.height > 0 && after.scroll > 0, `${width}x${height} ${mode}: content cannot scroll`);
-      assert.ok(before.header.top >= 0 && after.bottom <= height + 1, `${width}x${height} ${mode}: footer outside viewport: ${after.bottom}`);
-      assert.equal(after.top, before.header.top); assert.equal(after.bottom, before.footer.bottom);
-      assert.equal(after.documentScroll, 0);
+      assert.ok(before.header.top >= safeTop && after.bottom <= height - bottom + 1);
+      assert.equal(after.top, before.header.top); assert.equal(after.bottom, before.footer.bottom); assert.equal(after.documentScroll, 0);
+      // Back and reopen must not leak callbacks.
+      page.on('dialog', dialog => dialog.accept());
+      if(mode !== 'browser') await page.evaluate(() => { for(const cb of [...testBackCallbacks]) cb(); });
+      else await page.locator('.test-session__close').click();
+      await page.locator('.tests-head').waitFor();
+      assert.equal(await page.evaluate(() => testBackCallbacks.size), 0);
+      await page.locator('.nav-item').first().click();
+      await page.locator('.topbar').waitFor();
+      // Fullscreen/expanded transition must be driven by metrics, not by a fixed minimum.
+      if(mode !== 'browser') {
+        await page.evaluate(() => {
+          const t=Telegram.WebApp;t.isFullscreen=false;t.safeAreaInset.top=0;t.contentSafeAreaInset.top=0;t.safeAreaInset.bottom=0;
+          for(const event of ['fullscreenChanged','safeAreaChanged','contentSafeAreaChanged','viewportChanged']) for(const cb of testEvents.get(event)??[])cb();
+        });
+        assert.equal(await page.locator('.shell__viewport').evaluate(el => el.getBoundingClientRect().top), 0);
+        assert.equal(await page.locator('.bottom-nav').evaluate(el=>getComputedStyle(el).paddingBottom),'8px');
+      }
+      await page.reload();
+      assert.equal(await page.evaluate(() => testBackCallbacks.size), 0);
+      if(mode !== 'browser') assert.ok(await page.evaluate(() => [...testEvents.values()].every(set=>set.size===1)));
       assert.deepEqual(errors, []);
-      console.log(`PASS ${width}x${height} ${mode}: footer=${after.bottom}, inner scroll=${after.scroll}, BackButton=${expected}`);
+      console.log(`PASS ${width}x${height} ${mode}: clipping, navigation, search/resize, answer colors, footer, reopen`);
       await page.close();
     }
   }
-} finally {
-  await browser?.close(); server.kill();
-}
+} finally { await browser?.close(); server.kill(); }
