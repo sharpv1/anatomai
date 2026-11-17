@@ -35,7 +35,9 @@ try {
       await page.goto('http://127.0.0.1:4179/');
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), mode === 'telegram');
       assert.ok(await page.locator('.shell').evaluate(el => el.scrollWidth <= el.clientWidth));
-      assert.equal(await page.locator('.hero svg,.hero .streak,.hero .micro-badge,.icon-btn .dot').count(),0);
+      assert.equal(await page.locator('.hero svg,.icon-btn .dot').count(),0);
+      assert.equal(await page.locator('.hero .streak').innerText(),'🔥 5 дней подряд');
+      assert.equal(await page.locator('.hero .micro-badge').innerText(),'✦ +120 XP за сегодня');
       assert.ok(await page.locator('.icon-btn').evaluate(el=>el.getBoundingClientRect().width>=44 && el.getBoundingClientRect().height>=44));
       assert.ok(await page.locator('meta[name="viewport"]').getAttribute('content').then(value=>value.includes('user-scalable=no')));
       const gestures=await page.locator('.shell').evaluate(el=>{
