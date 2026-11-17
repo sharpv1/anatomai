@@ -1,20 +1,48 @@
 :root {
   --tg-viewport-height: 100dvh;
   --tg-viewport-stable-height: 100dvh;
+  --tg-safe-top: 0px;
+  --tg-safe-bottom: 0px;
+  --tg-safe-left: 0px;
+  --tg-safe-right: 0px;
+  --tg-content-top: 0px;
+  --tg-content-bottom: 0px;
+  --tg-content-left: 0px;
+  --tg-content-right: 0px;
+  --anatomai-top-clearance: 0px;
+  /* Insets belong to the screen boundary, never to both shell and child. */
+  --app-inset-top: max(var(--tg-safe-top), var(--tg-content-top), env(safe-area-inset-top, 0px), var(--anatomai-top-clearance));
+  --app-inset-bottom: max(var(--tg-safe-bottom), var(--tg-content-bottom), env(safe-area-inset-bottom, 0px));
+  --app-inset-left: max(var(--tg-safe-left), var(--tg-content-left), env(safe-area-inset-left, 0px));
+  --app-inset-right: max(var(--tg-safe-right), var(--tg-content-right), env(safe-area-inset-right, 0px));
 }
 
-html,
-body,
-#root {
-  width: 100%;
-  min-width: 0;
-  min-height: 100%;
-}
+html, body, #root { width: 100%; min-width: 0; min-height: 100%; }
+body, #root { min-height: var(--tg-viewport-height, 100dvh); }
 
-body {
-  min-height: var(--tg-viewport-height, 100dvh);
-}
+.fullscreen-toggle { display: none; }
+:root[data-telegram-fullscreen-available="true"][data-telegram-fullscreen="false"] .shell:not(.shell--test-flow) .fullscreen-toggle { display: block; }
+.shell--test-flow { padding: 0; min-height: var(--tg-viewport-height); }
+/* Overflow is owned by the test screen, not the document behind it. */
+html:has(.shell--test-flow), body:has(.shell--test-flow) { overflow: hidden; height: var(--tg-viewport-height); }
+body:has(.shell--test-flow) { padding: 0; }
 
-#root {
-  min-height: var(--tg-viewport-height, 100dvh);
+/* Published UI 4.5 system-controls scrim, retained without its patch cascade. */
+:root[data-telegram-fullscreen="true"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: calc(76px + var(--anatomai-top-clearance));
+  z-index: 30;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(245,247,251,.98) 0%, rgba(245,247,251,.96) 70%, rgba(245,247,251,.84) 86%, rgba(245,247,251,0) 100%);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+:root[data-telegram-fullscreen="true"] .bottom-nav {
+  padding-top: 8px;
+  padding-bottom: calc(12px + var(--app-inset-bottom));
+}
+@media (max-height: 650px) {
+  .shell:not(.shell--test-flow) { padding-top: calc(8px + var(--app-inset-top)); }
 }
