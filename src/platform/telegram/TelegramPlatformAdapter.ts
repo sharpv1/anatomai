@@ -12,6 +12,13 @@ export type TelegramPlatform = {
   hapticImpact(): void;
 };
 
+// Telegram system insets and content insets describe successive areas.
+// An explicit SDK zero means that the host has already excluded that edge.
+export function resolveInset(system: number | undefined, content: number | undefined, browserFallback = 0): number {
+  const valid = (value: number | undefined) => Number.isFinite(value) && value! >= 0;
+  return (valid(system) ? system! : Math.max(0, browserFallback)) + (valid(content) ? content! : 0);
+}
+
 // Creating the adapter is pure: React StrictMode may call the factory twice.
 export function createTelegramPlatformAdapter(): TelegramPlatform {
   let telegram: TelegramWebApp | undefined;
@@ -19,6 +26,7 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
   let backCallback: (() => void) | undefined;
   let backAttached = false;
   const root = () => document.documentElement;
+  let subscriptions: typeof events = [];
   const invoke = (action: () => void) => { try { action(); } catch { /* Older clients may reject optional API calls. */ } };
   const supports = (version: string) => {
     if (!telegram) return false;
@@ -33,19 +41,26 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
     root().style.setProperty(name, `${Number.isFinite(value) ? Math.max(0, value!) : 0}px`);
   };
   const sync = () => {
-    const safe = telegram?.safeAreaInset;
-    const content = telegram?.contentSafeAreaInset;
+    const safe = supports('8.0') ? telegram?.safeAreaInset : undefined;
+    const content = supports('8.0') ? telegram?.contentSafeAreaInset : undefined;
     for (const edge of ['top', 'bottom', 'left', 'right'] as const) {
       pixel(`--tg-safe-${edge}`, safe?.[edge]);
       pixel(`--tg-content-${edge}`, content?.[edge]);
+      const system = safe?.[edge];
+      const extra = resolveInset(0, content?.[edge]);
+      // CSS env is a fallback, not an extra copy of the SDK system inset.
+      const value = Number.isFinite(system) && system! >= 0
+        ? `${resolveInset(system, content?.[edge])}px`
+        : `calc(env(safe-area-inset-${edge}, 0px) + ${extra}px)`;
+      root().style.setProperty(`--app-inset-${edge}`, value);
     }
-    const height = window.visualViewport?.height ?? window.innerHeight;
-    pixel('--tg-viewport-height', telegram?.viewportHeight || height);
-    pixel('--tg-viewport-stable-height', telegram?.viewportStableHeight || telegram?.viewportHeight || height);
-    const fullscreen = Boolean(telegram?.isFullscreen);
-    root().dataset.telegramFullscreen = String(fullscreen);
-    // Published UI 4.5 uses max(content.top, safe.top, 104) in fullscreen.
-    pixel('--anatomai-top-clearance', fullscreen ? Math.max(content?.top ?? 0, safe?.top ?? 0, 104) : 0);
+    const positive = (value: number | undefined) => Number.isFinite(value) && value! > 0 ? value! : Infinity;
+    const height = Math.min(positive(telegram?.viewportHeight), positive(window.visualViewport?.height), positive(window.innerHeight));
+    pixel('--tg-viewport-height', Number.isFinite(height) ? height : 0);
+    pixel('--tg-viewport-stable-height', telegram?.viewportStableHeight || height);
+    pixel('--app-viewport-offset-top', window.visualViewport?.offsetTop);
+    root().dataset.anatomaiViewport = 'true';
+    root().dataset.telegramFullscreen = String(Boolean(telegram?.isFullscreen));
     root().dataset.telegramFullscreenAvailable = String(Boolean(telegram?.requestFullscreen && supports('8.0')));
   };
   const fullscreenChanged = () => { delete root().dataset.telegramFullscreenError; sync(); };
@@ -87,10 +102,12 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
       if (supports('7.10')) invoke(() => telegram?.setBottomBarColor?.('#ffffff'));
       if (supports('7.7')) invoke(() => telegram?.disableVerticalSwipes?.());
       if (telegram?.onEvent && telegram.offEvent) {
-        for (const [event, callback] of events) telegram.onEvent(event, callback);
+        subscriptions = events.filter(([event]) => event === 'viewportChanged' || supports('8.0'));
+        for (const [event, callback] of subscriptions) telegram.onEvent(event, callback);
       }
       window.addEventListener('resize', sync, { passive: true });
       window.visualViewport?.addEventListener('resize', sync, { passive: true });
+      window.visualViewport?.addEventListener('scroll', sync, { passive: true });
       document.addEventListener('visibilitychange', sync);
       sync();
       attachBack();
@@ -99,17 +116,21 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
       if (!initialized) return;
       detachBack();
       backCallback = undefined;
-      for (const [event, callback] of events) telegram?.offEvent?.(event, callback);
+      for (const [event, callback] of subscriptions) telegram?.offEvent?.(event, callback);
+      subscriptions = [];
       window.removeEventListener('resize', sync);
       window.visualViewport?.removeEventListener('resize', sync);
+      window.visualViewport?.removeEventListener('scroll', sync);
       document.removeEventListener('visibilitychange', sync);
       telegram = undefined;
       initialized = false;
       for (const edge of ['top', 'bottom', 'left', 'right']) {
         root().style.removeProperty(`--tg-safe-${edge}`);
         root().style.removeProperty(`--tg-content-${edge}`);
+        root().style.removeProperty(`--app-inset-${edge}`);
       }
-      for (const name of ['--tg-viewport-height', '--tg-viewport-stable-height', '--anatomai-top-clearance']) root().style.removeProperty(name);
+      for (const name of ['--tg-viewport-height', '--tg-viewport-stable-height', '--app-viewport-offset-top']) root().style.removeProperty(name);
+      delete root().dataset.anatomaiViewport;
       delete root().dataset.telegramFullscreen;
       delete root().dataset.telegramFullscreenAvailable;
       delete root().dataset.telegramFullscreenError;

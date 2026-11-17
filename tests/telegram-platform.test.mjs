@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../src/platform/telegram/TelegramPlatformAdapter.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
-const { createTelegramPlatformAdapter } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const { createTelegramPlatformAdapter, resolveInset } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 
 function environment(overrides = {}) {
   const root = { dataset: {}, style: new Map() };
@@ -49,17 +49,21 @@ test('BackButton invokes only the latest callback and unregisters on hide/dispos
   a.showBackButton(() => latest++); a.dispose(); assert.equal(e.back.size, 0);
 });
 
-test('fullscreen success is event driven; failure is recorded; UI 4.5 clearance retained', () => {
+test('fullscreen success is event driven; no fixed clearance is injected', () => {
   const e = environment(); const a = createTelegramPlatformAdapter(); a.init();
   assert.equal(a.requestFullscreen(), true);
   assert.equal(e.root.dataset.telegramFullscreen, 'false');
   e.api.isFullscreen = true; e.emit('fullscreenChanged');
-  assert.equal(e.root.style.get('--anatomai-top-clearance'), '104px');
-  assert.equal(e.root.style.get('--tg-safe-top'), '59px');
+  assert.equal(e.root.style.get('--app-inset-top'), '104px');
+  e.api.safeAreaInset.top = 20; e.api.contentSafeAreaInset.top = 32; e.emit('safeAreaChanged');
+  assert.equal(e.root.style.get('--app-inset-top'), '52px');
+  assert.equal(e.root.style.has('--anatomai-top-clearance'), false);
+  assert.equal(e.root.style.get('--tg-safe-top'), '20px');
   e.emit('fullscreenFailed', { error: 'UNSUPPORTED' });
   assert.equal(e.root.dataset.telegramFullscreenError, 'UNSUPPORTED');
   e.api.isFullscreen = false; e.emit('fullscreenChanged');
-  assert.equal(e.root.style.get('--anatomai-top-clearance'), '0px');
+  e.api.safeAreaInset.top = 0; e.api.contentSafeAreaInset.top = 0; e.emit('contentSafeAreaChanged');
+  assert.equal(e.root.style.get('--app-inset-top'), '0px');
   assert.equal(e.root.dataset.telegramFullscreenError, undefined); a.dispose();
 });
 
@@ -70,4 +74,43 @@ test('browser SDK object and old Telegram clients do not enable fullscreen', () 
   assert.equal(e.root.style.get('--tg-viewport-height'), '320px'); a.dispose();
   e = environment({ version: '7.10' }); a = createTelegramPlatformAdapter(); a.init();
   assert.equal(a.isTelegram, true); assert.equal(a.requestFullscreen(), false); a.dispose();
+});
+
+test('distinct system/content areas compose once; explicit zero suppresses browser fallback', () => {
+  assert.equal(resolveInset(59, 45, 59), 104);
+  assert.equal(resolveInset(0, 0, 34), 0);
+  assert.equal(resolveInset(34, 0, 34), 34);
+  assert.equal(resolveInset(undefined, 12, 34), 46);
+  assert.equal(resolveInset(NaN, -10, 34), 34);
+  assert.equal(resolveInset(-1, Infinity, 0), 0);
+});
+
+test('viewport uses current visible height, not stable height; resize listeners are removed', () => {
+  const e = environment(); const a = createTelegramPlatformAdapter(); a.init();
+  assert.equal(e.root.style.get('--tg-viewport-height'), '500px');
+  assert.equal(e.root.style.get('--tg-viewport-stable-height'), '667px');
+  window.visualViewport.height = 280;
+  window.visualViewport.offsetTop = 12;
+  window.visualViewport.dispatchEvent(new Event('resize'));
+  assert.equal(e.root.style.get('--tg-viewport-height'), '280px');
+  assert.equal(e.root.style.get('--app-viewport-offset-top'), '12px');
+  e.api.safeAreaInset.bottom = 0; e.emit('safeAreaChanged');
+  assert.equal(e.root.style.get('--app-inset-bottom'), '0px');
+  a.dispose();
+  window.dispatchEvent(new Event('resize'));
+  window.visualViewport.dispatchEvent(new Event('scroll'));
+  document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(e.root.style.size, 0);
+  a.init(); assert.equal(e.root.style.get('--app-inset-bottom'), '0px'); a.dispose();
+});
+
+test('SDK absent, old event API, and missing insets fall back without exceptions', () => {
+  let e = environment(); delete window.Telegram;
+  let a = createTelegramPlatformAdapter(); a.init();
+  assert.equal(a.isTelegram, false);
+  assert.match(e.root.style.get('--app-inset-top'), /env\(safe-area-inset-top/); a.dispose();
+  e = environment({ version: '7.10' }); a = createTelegramPlatformAdapter(); a.init();
+  assert.deepEqual([...e.events.keys()], ['viewportChanged']); a.dispose();
+  e = environment({ safeAreaInset: undefined, contentSafeAreaInset: undefined }); a = createTelegramPlatformAdapter(); a.init();
+  assert.match(e.root.style.get('--app-inset-bottom'), /env\(safe-area-inset-bottom/); a.dispose();
 });
