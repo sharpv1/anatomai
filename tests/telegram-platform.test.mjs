@@ -126,3 +126,12 @@ test('intentional pinch zoom does not reflow shell as if a keyboard opened', () 
   window.visualViewport.dispatchEvent(new Event('resize'));
   assert.equal(e.root.style.get('--tg-viewport-height'), '320px'); a.dispose();
 });
+
+test('native BackButton capability requires a supported client and removable callback', () => {
+  let e = environment(); let a = createTelegramPlatformAdapter();
+  assert.equal(a.canUseBackButton,false); a.init(); assert.equal(a.canUseBackButton,true); a.dispose();
+  assert.equal(a.canUseBackButton,false);
+  for(const overrides of [{BackButton:undefined},{version:'6.0'},{BackButton:{show(){},hide(){},onClick(){}}},{initData:'',platform:'unknown'}]){
+    e=environment(overrides);a=createTelegramPlatformAdapter();a.init();assert.equal(a.canUseBackButton,false);a.dispose();
+  }
+});

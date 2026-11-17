@@ -54,10 +54,10 @@ try {
       assert.equal(geometry.viewTop, safeTop);
       assert.equal(geometry.headerTop, safeTop + 12);
       assert.equal(geometry.scrim, `${safeTop}px`);
-      assert.equal(geometry.paddingBottom, '8px');
+      assert.equal(geometry.paddingBottom, '6px');
       assert.equal(geometry.viewBottom, height);
       assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().bottom), height - bottom);
-      assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().height),64);
+      assert.equal(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().height),60);
       assert.ok(await page.locator('.bottom-nav').evaluate(el => el.getBoundingClientRect().width < document.querySelector('.shell').clientWidth));
       // Scroll the real home page: the protected band never receives hero hits.
       await page.locator('.shell__content').evaluate(el => { el.scrollTop = el.scrollHeight; });
@@ -92,6 +92,7 @@ try {
       await page.locator('.test-card').first().click();
       await page.locator('.test-mode-card').first().click();
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), false);
+      assert.equal(await page.locator('.test-session__close').count(),mode === 'browser' ? 1 : 0);
       await page.locator('.test-choice').first().click();
       assert.equal(await page.locator('.test-session__action').innerText(),'Далее');
       assert.equal(await page.locator('.test-choice:disabled').count(),4);
@@ -121,7 +122,12 @@ try {
       assert.ok(before.header.top >= safeTop && after.bottom <= height - bottom + 1);
       assert.equal(after.top, before.header.top); assert.equal(after.bottom, before.footer.bottom); assert.equal(after.documentScroll, 0);
       // Back and reopen must not leak callbacks.
-      page.on('dialog', dialog => dialog.accept());
+      page.once('dialog', dialog => dialog.dismiss());
+      if(mode !== 'browser') await page.evaluate(() => { for(const cb of [...testBackCallbacks]) cb(); });
+      else await page.locator('.test-session__close').click();
+      assert.equal(await page.locator('.test-session').count(),1);
+      assert.equal(await page.evaluate(() => testBackCallbacks.size),expectedBack);
+      page.once('dialog', dialog => dialog.accept());
       if(mode !== 'browser') await page.evaluate(() => { for(const cb of [...testBackCallbacks]) cb(); });
       else await page.locator('.test-session__close').click();
       await page.locator('.tests-head').waitFor();
@@ -135,7 +141,7 @@ try {
           for(const event of ['fullscreenChanged','safeAreaChanged','contentSafeAreaChanged','viewportChanged']) for(const cb of testEvents.get(event)??[])cb();
         });
         assert.equal(await page.locator('.shell__viewport').evaluate(el => el.getBoundingClientRect().top), 0);
-        assert.equal(await page.locator('.bottom-nav').evaluate(el=>getComputedStyle(el).paddingBottom),'8px');
+        assert.equal(await page.locator('.bottom-nav').evaluate(el=>getComputedStyle(el).paddingBottom),'6px');
         assert.equal(await page.locator('.bottom-nav').evaluate(el=>innerHeight-el.getBoundingClientRect().bottom),8);
       }
       await page.reload();
