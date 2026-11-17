@@ -11,6 +11,7 @@ import './styles/app.css';
 
 export default function App() {
   const platform = useMemo(() => createTelegramPlatformAdapter(), []);
+  useEffect(() => { platform.init(); return () => platform.dispose(); }, [platform]);
   const [route, setRoute] = useState<AppRoute>('home');
   const [testScreen, setTestScreen] = useState<'catalog' | 'session' | 'result'>('catalog');
   const [selectedTest, setSelectedTest] = useState<TestDefinition | null>(null);
@@ -31,6 +32,6 @@ export default function App() {
     {route === 'tests' && testScreen === 'catalog' && <TestsPage onSelectTest={openTest} />}
     {testScreen === 'session' && selectedTest && <TestSession test={selectedTest} platform={platform} onComplete={finishTest} onExit={backToCatalog} />}
     {testScreen === 'result' && result && <TestResult result={result} platform={platform} onBack={backToCatalog} onRetake={retakeTest} />}
-    <button className="fullscreen-toggle" aria-label="Переключить полноэкранный режим" onClick={() => platform.requestFullscreen()}>⛶</button>
+    <button className="fullscreen-toggle" aria-label="Открыть полноэкранный режим" onClick={() => platform.requestFullscreen()}>⛶</button>
   </AppShell>;
 }
