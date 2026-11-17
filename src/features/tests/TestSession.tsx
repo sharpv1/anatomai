@@ -39,10 +39,9 @@ export function TestSession({ test, platform, onComplete, onExit }: TestSessionP
   const streak = learning ? correctStreak(session.answers, session.confirmedAnswer, session.question.correctAnswer) : 0;
   const completed = session.questionIndex + (checked ? 1 : 0);
   const submit = () => {
-    if (learning && !checked) { session.confirmAnswer(); platform.hapticImpact(); }
-    else session.next();
+    session.next();
   };
-  const actionLabel = learning && !checked ? 'Проверить ответ' : isLast ? (learning ? 'Завершить тест' : 'Завершить экзамен') : 'Далее';
+  const actionLabel = isLast ? (learning ? 'Завершить тест' : 'Завершить экзамен') : 'Далее';
 
   return <section className="test-session" aria-label="Прохождение теста">
     <header className="test-session__top">
@@ -60,17 +59,17 @@ export function TestSession({ test, platform, onComplete, onExit }: TestSessionP
         <div className="test-session__options" role="group" aria-labelledby="test-question-title">
           {session.question.answers.map((answer, index) => {
             const state = answerState(index, session.selectedAnswer, checked ? session.confirmedAnswer : null, session.question!.correctAnswer);
-            return <button key={`${session.question!.id}-${index}`} className={`test-choice ${state}`} aria-pressed={session.selectedAnswer === index} disabled={checked} onClick={() => session.selectAnswer(index)}>
+            return <button key={`${session.question!.id}-${index}`} className={`test-choice ${state}`} aria-pressed={session.selectedAnswer === index} disabled={checked} onClick={() => { if (learning) session.confirmAnswer(index); else session.selectAnswer(index); }}>
               <span className="test-choice__radio" aria-hidden="true"><i /></span><span className="test-choice__letter" aria-hidden="true">{String.fromCharCode(65 + index)}</span><span className="test-choice__text">{answer}</span><b className="test-choice__mark" aria-hidden="true">{state === 'correct' ? '✓' : state === 'wrong' ? '×' : ''}</b>
             </button>;
           })}
         </div>
-        {checked && <div className={`test-explanation ${session.confirmedAnswer === session.question.correctAnswer ? 'test-explanation--correct' : ''}`} role="status"><strong>{session.confirmedAnswer === session.question.correctAnswer ? 'Правильно' : 'Есть что повторить'}</strong>{session.question.explanation && <p>{session.question.explanation}</p>}</div>}
+        {checked && session.question.explanation && <div className={`test-explanation ${session.confirmedAnswer === session.question.correctAnswer ? 'test-explanation--correct' : ''}`} role="status"><strong>{session.confirmedAnswer === session.question.correctAnswer ? 'Правильно' : 'Есть что повторить'}</strong>{session.question.explanation && <p>{session.question.explanation}</p>}</div>}
       </div>
     </div>
     <footer className="test-session__footer"><div className="test-session__footer-actions">
       {!checked && <button className="test-session__skip" onClick={session.skip}>Пропустить вопрос</button>}
-      <button className="test-session__action" disabled={session.selectedAnswer === null} onClick={submit}>{actionLabel}</button>
+      {(!learning || checked) && <button className="test-session__action" disabled={session.selectedAnswer === null} onClick={submit}>{actionLabel}</button>}
     </div>{!learning && <small className="test-session__footer-note">Ответы проверим после завершения экзамена</small>}</footer>
   </section>;
 }

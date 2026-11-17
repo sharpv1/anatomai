@@ -1,3 +1,4 @@
+import { demoDailyFocusMetrics } from '../data/dailyFocus';
 import { AppHeader } from '../components/AppHeader';
 import { DailyFocusCard } from '../components/DailyFocusCard';
 import { StatisticsSection } from '../components/StatisticsSection';
@@ -8,7 +9,7 @@ type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => v
 export function HomePage({ onStartTest, onNotify }: HomePageProps) {
   return <>
     <AppHeader onNotifications={() => onNotify('Новых уведомлений нет')} />
-    <DailyFocusCard onStart={onStartTest} />
+    <DailyFocusCard onStart={onStartTest} metrics={demoDailyFocusMetrics} />
     <StatisticsSection onDetails={() => onNotify('Открываем статистику')} />
     <SubjectsSection onAll={() => onNotify('Все предметы')} />
     <div className="section"><h3>Повтори сегодня</h3><button className="see-all" onClick={() => onNotify('Открываем конспекты')}>Все конспекты</button></div>

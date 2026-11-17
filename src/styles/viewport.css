@@ -44,17 +44,53 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
+.shell {
+  --nav-height: 64px;
+  --nav-bottom: max(8px, var(--app-inset-bottom));
+  --nav-reserve: calc(var(--nav-height) + var(--nav-bottom) + 12px);
+  touch-action: pan-x pan-y;
+}
+.shell:not(.shell--test-flow) .shell__content { padding-bottom: var(--nav-reserve); }
 .shell > .bottom-nav {
-  position: static;
-  flex: 0 0 auto;
-  width: 100%;
+  position: absolute;
+  left: calc(12px + var(--app-inset-left));
+  right: calc(12px + var(--app-inset-right));
+  bottom: var(--nav-bottom);
+  width: auto;
+  height: var(--nav-height);
   transform: none;
-  padding: 8px calc(20px + var(--app-inset-right)) max(8px, var(--app-inset-bottom)) calc(20px + var(--app-inset-left));
+  padding: 8px;
+  gap: 4px;
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 28px;
+  background: rgba(255,255,255,.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 6px 24px rgba(23,35,61,.1), inset 0 1px 0 rgba(255,255,255,.7);
+}
+.shell > .bottom-nav .nav-item {
+  min-width: 0;
+  min-height: 44px;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 18px;
+  font-size: 10px;
+  line-height: 12px;
+  color: #6c7890;
+  transition: background-color 160ms, color 160ms;
+}
+.shell > .bottom-nav .nav-item.active { color: #3d68df; background: rgba(77,124,255,.1); }
+.shell > .bottom-nav .nav-item svg { width: 22px; height: 22px; flex-shrink: 0; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .shell > .bottom-nav { background: rgba(255,255,255,.97); border-color: #e4e9f1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell > .bottom-nav .nav-item { transition: none; }
 }
 .shell > .bottom-nav--hidden { display: none; }
 .shell--test-flow { padding-bottom: max(8px, var(--app-inset-bottom)); }
 .shell--test-flow .shell__content { overflow: hidden; padding-bottom: 0; }
 .shell .fullscreen-toggle { display: none; }
 :root[data-telegram-fullscreen-available="true"][data-telegram-fullscreen="false"] .shell:not(.shell--test-flow) .fullscreen-toggle { display: block; }
-.shell .fullscreen-toggle { bottom: calc(68px + max(8px, var(--app-inset-bottom))); }
-.shell > .toast { bottom: calc(68px + max(8px, var(--app-inset-bottom))); max-width: calc(100% - 36px); white-space: normal; }
+.shell .fullscreen-toggle { bottom: calc(var(--nav-reserve) + 8px); }
+.shell > .toast { bottom: calc(var(--nav-reserve) + 8px); max-width: calc(100% - 36px); white-space: normal; }
