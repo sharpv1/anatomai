@@ -1,25 +1,23 @@
 import { useState, useSyncExternalStore } from 'react';
-import { LibraryIcon } from '../features/library/LibraryIcon';
 import type { TelegramPlatform } from '../platform/telegram/TelegramPlatformAdapter';
 import { telegramProfile } from '../features/library/catalog';
-
-export function ProfilePage({ platform, onProgress, onTests }: { platform: TelegramPlatform; onProgress: () => void; onTests: () => void }) {
-  const isTelegram = useSyncExternalStore(platform.subscribeBackButton, platform.getTelegramContextSnapshot, () => false);
-  const { name, photoUrl } = isTelegram ? telegramProfile(window.Telegram?.WebApp) : { name: null, photoUrl: null };
-  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
-  const initials = name?.split(/\s+/).slice(0, 2).map(part => Array.from(part)[0]).join('').toLocaleUpperCase('ru');
-  return <section className="profile-page library-page" aria-labelledby="profile-title">
-    <header className="library-heading"><p className="eyebrow">Ваш путь в медицине</p><h1 id="profile-title">Профиль</h1></header>
-    <section className="profile-identity" aria-label="Данные профиля">
-      <div className="profile-identity__top"><span className="profile-avatar" aria-hidden="true">{photoUrl && failedPhoto !== photoUrl ? <img src={photoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedPhoto(photoUrl)} /> : initials || <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4" /><path d="M4 22v-3a8 8 0 0 1 16 0v3" /></svg>}</span><div><h2>{name || 'Ваш профиль'}</h2><p>{name ? 'ANATOMAI' : 'Имя пока недоступно'}</p></div></div>
-      <p className="profile-data-note">Уровень и XP пока недоступны.</p>
-    </section>
-    <div className="library-section-title"><h2>Достижения</h2><span>Скоро</span></div>
-    <div className="library-empty" aria-disabled="true"><strong>Учебные достижения</strong><p>Функция пока недоступна.</p></div>
-    <div className="library-section-title"><h2>Доступ</h2></div>
-    <button className="profile-action" onClick={onTests}><LibraryIcon name="practice" /><span><strong>Практика</strong><small>Обучение и экзамен</small></span><b>›</b></button>
-    <div className="library-section-title"><h2>Мои данные</h2></div>
-    <button className="profile-action" onClick={onProgress}><LibraryIcon name="activity" /><span><strong>Мой прогресс</strong><small>Статистика текущей сессии</small></span><b>›</b></button>
-    <div className="library-section-title"><h2>Настройки</h2><span>Скоро</span></div><div className="library-empty" aria-disabled="true"><strong>Напоминания и учебные цели</strong><p>Пока недоступны. Подписки и покупки не подключены.</p></div>
-  </section>;
+import { profileAchievements, sessionStreak } from '../features/library/achievements';
+import { ProfileIcon } from '../features/library/ProfileIcon';
+import type { CompletedTest } from '../features/library/statistics';
+import '../styles/profile-7.3.css';
+export function ProfilePage({platform,entries,onReset}:{platform:TelegramPlatform;entries:CompletedTest[];onReset:()=>void}){
+ const isTelegram=useSyncExternalStore(platform.subscribeBackButton,platform.getTelegramContextSnapshot,()=>false);
+ const {name,photoUrl}=isTelegram?telegramProfile(window.Telegram?.WebApp):{name:null,photoUrl:null};
+ const [failedPhoto,setFailedPhoto]=useState<string|null>(null);
+ const initials=name?.split(/\s+/).slice(0,2).map(s=>Array.from(s)[0]).join('').toLocaleUpperCase('ru');
+ const streak=sessionStreak(entries);
+ return <section className="profile-page library-page radix-profile" aria-label="Профиль">
+  <header className="rp-user"><span className="rp-avatar" aria-hidden="true">{photoUrl&&failedPhoto!==photoUrl?<img src={photoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailedPhoto(photoUrl)}/>:initials||<ProfileIcon name="book"/>}</span><h1>{name||'Ваш профиль'}</h1><div className="rp-indicators"><span aria-label={`Серия активности: ${streak===null?'нет данных':streak}`}><ProfileIcon name="flame"/>{streak??'—'}</span><span aria-label="XP: нет данных"><ProfileIcon name="bolt"/>—</span></div></header>
+  <h2 className="rp-section">Достижения</h2><ul className="rp-achievements">{profileAchievements(entries).map(a=><li key={a.id} className={`rp-achievement ${a.unlocked?'is-unlocked':'is-locked'}`} aria-label={`${a.title}: ${a.unlocked?'получено в этой сессии':'заблокировано'}`}><span className="rp-achievement-icon"><ProfileIcon name={a.icon}/></span><strong>{a.title}</strong><small>{a.caption}</small></li>)}</ul>
+  <p className="rp-note">Достижения и серия — по результатам текущей сессии. Условия учебных блоков и маршрута пока недоступны.</p>
+  <h2 className="rp-section">Доступ</h2><div className="rp-row rp-access"><ProfileIcon name="book"/><div><strong>Бесплатный доступ</strong><p>Тесты в режимах обучения и экзамена. Просмотр статистики текущей сессии.</p></div></div>
+  <div className="rp-row rp-muted" aria-disabled="true"><ProfileIcon name="star"/><div><strong>Premium</strong><small>Платные функции не подключены</small></div><span className="rp-status">Недоступно</span></div>
+  <h2 className="rp-section">Прогресс</h2><div className="rp-row"><ProfileIcon name="progress"/><div><strong>Текущая сессия</strong><p>Результаты хранятся в памяти до перезагрузки. Синхронизации с аккаунтом нет.</p></div></div>
+  {entries.length>0&&<><h2 className="rp-section">Настройки</h2><button className="rp-row rp-reset" onClick={()=>{if(window.confirm('Сбросить результаты текущей сессии и достижения? Отменить это действие нельзя.'))onReset();}}><ProfileIcon name="trash"/><strong>Сбросить прогресс</strong></button></>}
+ </section>;
 }
