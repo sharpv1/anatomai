@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import './TestScreens.css';
 import { questionsForTest } from './data';
 import { resultSummary } from './presentation';
 import { useTelegramBackButton } from '../../platform/telegram/useTelegramBackButton';
@@ -32,8 +33,10 @@ export function TestResult({ result, platform, onBack, onRetake }: TestResultPro
       <div><strong>{wrong}</strong><span>Ошибок</span></div>
       <div><strong>{skipped}</strong><span>Пропущено</span></div>
     </div>
-    <p className="test-result__caption">Вопросов: {result.total} · Верных: {result.score}</p>
-    <p className="test-result__time">Фактическое время: <strong>{Math.floor(result.durationSeconds / 60)} мин {result.durationSeconds % 60} сек</strong></p>
+    <div className="test-result__meta">
+    <p className="test-result__caption">Вопросов: {result.total}</p>
+    <p className="test-result__time">Время: <strong>{Math.floor(result.durationSeconds / 60)} мин {result.durationSeconds % 60} сек</strong></p>
+    </div>
     <div className="test-result__actions">
       {hasReview && <button className="test-session__action" aria-expanded={showReview} aria-controls="test-review" onClick={() => setShowReview(value => !value)}>{showReview ? 'Скрыть разбор' : 'Разобрать ошибки'}</button>}
       <button className="test-result__secondary" onClick={onRetake}>Пройти ещё раз</button>
