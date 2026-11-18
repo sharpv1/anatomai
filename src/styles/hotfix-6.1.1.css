@@ -1,9 +1,0 @@
-/* Layout-only hotfix; do not touch answer cards, home, catalog or navigation. */
-.shell--test-flow .test-session__content { margin-top: 8px; }
-.test-result .test-result__summary { gap: 4px; }
-.test-result .test-result__details { margin-top: 12px; }
-.test-result .test-result__stats div { padding-top: 10px; padding-bottom: 10px; }
-.test-result .test-result__caption { margin-top: 8px; }
-.test-result .test-result__time { margin-top: 3px; }
-.test-result .test-result__actions { margin-top: 12px; gap: 4px; }
-.test-result .test-result__secondary { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }

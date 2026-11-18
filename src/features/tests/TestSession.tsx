@@ -5,6 +5,7 @@ import { useTestSession } from './useTestSession';
 import type { TestDefinition, TestMode, TestResultData } from './types';
 import type { TelegramPlatform } from '../../platform/telegram/TelegramPlatformAdapter';
 import './TestSession.css';
+import './TestScreens.css';
 import { useTelegramBackButton } from '../../platform/telegram/useTelegramBackButton';
 
 type TestSessionProps = { test: TestDefinition; platform: TelegramPlatform; onComplete: (result: TestResultData) => void; onExit: () => void };
@@ -57,7 +58,7 @@ export function TestSession({ test, platform, onComplete, onExit }: TestSessionP
           {session.question.answers.map((answer, index) => {
             const state = answerState(index, session.selectedAnswer, checked ? session.confirmedAnswer : null, session.question!.correctAnswer);
             return <button key={`${session.question!.id}-${index}`} className={`test-choice ${state}`} aria-pressed={session.selectedAnswer === index} disabled={checked} onClick={() => { if (learning) session.confirmAnswer(index); else session.selectAnswer(index); }}>
-              <span className="test-choice__radio" aria-hidden="true"><i /></span><span className="test-choice__letter" aria-hidden="true">{String.fromCharCode(65 + index)}</span><span className="test-choice__text">{answer}</span><b className="test-choice__mark" aria-hidden="true">{state === 'correct' ? '✓' : state === 'wrong' ? '×' : ''}</b>
+              <span className="test-choice__radio" aria-hidden="true"><i /></span><span className="test-choice__text">{answer}</span><b className="test-choice__mark" aria-hidden="true">{state === 'correct' ? '✓' : state === 'wrong' ? '×' : ''}</b>
             </button>;
           })}
         </div>

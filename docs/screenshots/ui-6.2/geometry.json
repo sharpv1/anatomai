@@ -1,0 +1,24 @@
+[
+  {
+    "version": "before",
+    "question": {
+      "content": 399.09375,
+      "footer": 673.828125
+    }
+  },
+  {
+    "version": "before",
+    "resultGroup": 416.234375
+  },
+  {
+    "version": "after",
+    "question": {
+      "content": 394.09375,
+      "footer": 659.828125
+    }
+  },
+  {
+    "version": "after",
+    "resultGroup": 369.671875
+  }
+]
