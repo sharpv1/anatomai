@@ -98,10 +98,10 @@ try {
       await page.locator('.test-choice').first().click();
       assert.equal(await page.locator('.test-session__action').innerText(),'Далее');
       assert.equal(await page.locator('.test-choice:disabled').count(),4);
-      await page.waitForFunction(() => [...document.querySelectorAll('.test-choice.correct,.test-choice.wrong')].every(el => ['rgb(236, 251, 245)', 'rgb(255, 241, 241)'].includes(getComputedStyle(el).backgroundColor)));
+      await page.waitForFunction(() => [...document.querySelectorAll('.test-choice.correct,.test-choice.wrong')].every(el => ['rgb(242, 252, 248)', 'rgb(255, 246, 246)'].includes(getComputedStyle(el).backgroundColor)));
       const colors = await page.locator('.test-choice').evaluateAll(els => els.filter(el=>el.matches('.correct,.wrong')).map(el=>({card:getComputedStyle(el).backgroundColor,text:getComputedStyle(el.querySelector('.test-choice__text')).backgroundColor,radio:getComputedStyle(el.querySelector('.test-choice__radio')).backgroundColor})));
       assert.equal(colors.length, 2);
-      assert.deepEqual(colors.map(c=>c.card).sort(), ['rgb(236, 251, 245)','rgb(255, 241, 241)'].sort());
+      assert.deepEqual(colors.map(c=>c.card).sort(), ['rgb(242, 252, 248)','rgb(255, 246, 246)'].sort());
       for(const color of colors) { assert.equal(color.text,'rgba(0, 0, 0, 0)');assert.equal(color.radio,'rgba(0, 0, 0, 0)'); }
       assert.equal(await page.evaluate(() => testBackCallbacks.size), expectedBack);
       await page.evaluate(() => {
@@ -122,6 +122,7 @@ try {
         return {top:h.top, bottom:f.bottom, scroll:c.scrollTop, height:c.clientHeight, documentScroll:document.scrollingElement.scrollTop};
       });
       assert.ok(after.height > 0 && after.scroll > 0, `${width}x${height} ${mode}: content cannot scroll`);
+      assert.ok(Math.abs(before.footer.bottom - (height - bottom)) < 1, `footer must stay pinned: ${before.footer.bottom}`);
       assert.ok(before.header.top >= safeTop && after.bottom <= height - bottom + 1);
       assert.equal(after.top, before.header.top); assert.equal(after.bottom, before.footer.bottom); assert.equal(after.documentScroll, 0);
       // Back and reopen must not leak callbacks.
