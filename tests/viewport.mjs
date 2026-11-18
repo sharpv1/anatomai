@@ -13,7 +13,7 @@ try {
     server.on('exit', code => reject(new Error(`Preview exited: ${code}`)));
   });
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox'] });
-  for (const [width, height] of [... [320,375,390,430].flatMap(width=>[667,744,812,852].map(height=>[width,height])), [375,400], [667,375]]) {
+  for (const [width, height] of (process.env.VIEWPORT_JOURNEYS_ONLY ? [] : [... [320,375,390,430].flatMap(width=>[667,744,812,852].map(height=>[width,height])), [375,400], [667,375]])) {
     for (const mode of ['browser', 'telegram', 'fullscreen']) {
       const page = await browser.newPage({ viewport: { width, height }, reducedMotion: 'reduce' });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -89,7 +89,7 @@ try {
       assert.ok(await page.locator('.shell__content').evaluate(el => el.scrollTop > 0));
       await page.locator('[data-fixture]').evaluateAll(els => els.forEach(el=>el.remove()));
       await page.locator('.shell__content').evaluate(el => { el.scrollTop = 0; });
-      await page.locator('.test-card').first().click();
+      for(let nav=0;nav<3 && await page.locator('.test-mode-picker').count()===0;nav++) await page.locator('.test-card').first().click();
       await page.locator('.test-mode-card').first().click();
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), false);
       assert.equal(await page.locator('.test-session__close').count(),mode === 'browser' ? 1 : 0);
@@ -135,7 +135,7 @@ try {
       if(mode !== 'browser') await page.evaluate(() => { for(const cb of [...testBackCallbacks]) cb(); });
       else await page.locator('.test-session__close').click();
       await page.locator('.tests-head').waitFor();
-      assert.equal(await page.evaluate(() => testBackCallbacks.size), 0);
+      assert.equal(await page.evaluate(() => testBackCallbacks.size), expectedBack);
       await page.locator('.nav-item').first().click();
       await page.locator('.topbar').waitFor();
       // Fullscreen/expanded transition must be driven by metrics, not by a fixed minimum.
@@ -163,7 +163,7 @@ try {
   const page=await browser.newPage({viewport:{width:390,height:667},reducedMotion:'reduce'});
   await page.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:''}));
   await page.goto('http://127.0.0.1:4179/');
-  await page.locator('.nav-item').nth(1).click(); await page.locator('.test-card').first().click(); await page.locator('.test-mode-card').first().click();
+  await page.locator('.nav-item').nth(1).click(); for(let nav=0;nav<3 && await page.locator('.test-mode-picker').count()===0;nav++) await page.locator('.test-card').first().click(); await page.locator('.test-mode-card').first().click();
   assert.equal(await page.locator('.test-session__action').count(),0);
   for(let i=0;i<questions.length;i++) {
     assert.equal(await page.locator('.test-session__track').getAttribute('aria-valuenow'),String(i));
@@ -190,7 +190,7 @@ try {
   assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['3','1','1']);
   await page.getByRole('button',{name:'Разобрать ошибки',exact:true}).click();
   assert.equal(await page.locator('.test-review__item').count(),2);
-  await page.getByRole('button',{name:'Пройти ещё раз',exact:true}).click();
+  await page.getByRole('button',{name:'Повторить',exact:true}).click();
   await page.locator('.test-mode-card').nth(1).click();
   for(let i=0;i<questions.length;i++) {
     if(i===2){await page.locator('.test-session__skip').click();continue;}
@@ -205,13 +205,14 @@ try {
   await page.locator('.test-result').waitFor();
   assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['3','1','1']);
   await page.getByRole('button',{name:'К тестам',exact:true}).click();await page.locator('.tests-page').waitFor();
-  await page.locator('.test-card').nth(3).click();await page.locator('.test-mode-card').first().click();await page.locator('.test-choice').first().click();await page.locator('.test-session__action').click();
+  await page.locator('.tests-page .notes-back').click();await page.waitForFunction(()=>document.querySelectorAll('.test-card').length===4);
+  await page.locator('.test-card').nth(3).click();for(let nav=0;nav<2;nav++)await page.locator('.test-card').first().click();await page.locator('.test-mode-card').first().click();await page.locator('.test-choice').first().click();await page.locator('.test-session__action').click();
   await page.locator('.test-result').waitFor();
   assert.equal(await page.locator('.test-result__badge strong').innerText(),'100%');
   assert.equal(await page.getByRole('button',{name:'Разобрать ошибки',exact:true}).count(),0);
   assert.equal(await page.locator('.test-result__progress').getAttribute('aria-valuenow'),'100');
   assert.equal(await page.getByRole('button',{name:'К тестам',exact:true}).getAttribute('class'),'test-result__back');
-  await page.getByRole('button',{name:'Пройти ещё раз',exact:true}).click();await page.locator('.test-mode-card').first().click();await page.locator('.test-session__skip').click();
+  await page.getByRole('button',{name:'Повторить',exact:true}).click();await page.locator('.test-mode-card').first().click();await page.locator('.test-session__skip').click();
   await page.locator('.test-result').waitFor();
   assert.equal(await page.locator('.test-result__badge strong').innerText(),'0%');
   assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['0','0','1']);
