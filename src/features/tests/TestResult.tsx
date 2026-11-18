@@ -18,11 +18,11 @@ export function TestResult({ result, platform, onBack, onRetake }: TestResultPro
     ...questions.filter(question => !submittedIds.has(question.id)).slice(0, Math.max(0, result.total - result.answers.length)).map(question => ({ questionId: question.id, selectedAnswer: null, correctAnswer: question.correctAnswer })),
   ];
   const hasReview = reviewAnswers.length > 0;
-  const title = percent === 100 ? 'Все ответы верные' : percent >= 80 ? 'Отличный результат' : percent >= 60 ? 'Хорошая база' : 'Материал стоит повторить';
+  const title = percent === 100 ? 'Все ответы верные' : percent >= 80 ? 'Отличный результат' : percent >= 60 ? 'Хорошая база' : percent >= 40 ? 'Продолжайте практику' : 'Материал стоит повторить';
   return <section className="test-result" aria-label="Результат теста">
     <div className="test-result__summary">
     <p className="eyebrow">{result.mode === 'exam' ? 'Экзамен завершён' : 'Тест завершён'}</p>
-    <div className={`test-result__badge ${percent < 60 ? 'low' : ''}`}><strong>{percent}%</strong></div>
+    <div className={`test-result__badge ${percent < 60 ? 'low' : ''}`}><svg className="result-ring" viewBox="0 0 120 120" aria-hidden="true"><circle className="result-ring__track" cx="60" cy="60" r="52"/><circle className="result-ring__value" cx="60" cy="60" r="52" pathLength="100" style={{strokeDasharray: `${percent} 100`}} /></svg><strong>{percent}%</strong></div>
     <h1>{title}</h1>
     <p className="test-result__test">{result.test.title}</p>
     <div className="test-result__progress" role="progressbar" aria-label="Правильные ответы" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ transform: `scaleX(${Math.max(0, Math.min(100, percent)) / 100})` }} /></div>
@@ -39,7 +39,7 @@ export function TestResult({ result, platform, onBack, onRetake }: TestResultPro
     </div>
     <div className="test-result__actions">
       {hasReview && <button className="test-session__action" aria-expanded={showReview} aria-controls="test-review" onClick={() => setShowReview(value => !value)}>{showReview ? 'Скрыть разбор' : 'Разобрать ошибки'}</button>}
-      <button className="test-result__secondary" onClick={onRetake}>Пройти ещё раз</button>
+      <button className="test-result__secondary" onClick={onRetake}>Повторить</button>
       <button className="test-result__back" onClick={onBack}>К тестам</button>
     </div>
     </div>
