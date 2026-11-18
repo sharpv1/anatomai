@@ -30,6 +30,7 @@ interface TelegramWebApp {
   onEvent?: (event: TelegramEvent, callback: TelegramEventCallback) => void;
   offEvent?: (event: TelegramEvent, callback: TelegramEventCallback) => void;
   BackButton?: {
+    isVisible?: boolean;
     show: () => void;
     hide: () => void;
     onClick: (callback: () => void) => void;
