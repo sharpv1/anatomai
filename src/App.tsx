@@ -47,7 +47,7 @@ export default function App() {
     <div className="page-view" hidden={statistics || route !== 'home'}><HomePage onStartTest={() => goTo('tests')} onNotify={notify} onStatistics={openStatistics} /></div>
     <div className="page-view" hidden={statistics || route !== 'tests' || testScreen !== 'catalog'}><TestsPage onSelectTest={openTest} platform={platform} active={!statistics && route === 'tests' && testScreen === 'catalog'} /></div>
     <div className="page-view" hidden={statistics || route !== 'notes'}><NotesPage /></div>
-    <div className="page-view" hidden={statistics || route !== 'profile'}><ProfilePage platform={platform} onProgress={openStatistics} onTests={() => goTo('tests')} /></div>
+    <div className="page-view" hidden={statistics || route !== 'profile'}><ProfilePage platform={platform} entries={entries} onReset={() => setEntries([])} /></div>
     {statistics && <StatisticsPage entries={entries} platform={platform} onBack={closeStatistics} />}
     {testScreen === 'session' && selectedTest && <TestSession test={selectedTest} platform={platform} onComplete={finishTest} onExit={backToCatalog} />}
     {testScreen === 'result' && result && <TestResult result={result} platform={platform} onBack={backToCatalog} onRetake={retakeTest} />}
