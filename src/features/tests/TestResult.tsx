@@ -1,17 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { questionsForTest } from './data';
 import { resultSummary } from './presentation';
+import { useTelegramBackButton } from '../../platform/telegram/useTelegramBackButton';
 import type { TestResultData } from './types';
 import type { TelegramPlatform } from '../../platform/telegram/TelegramPlatformAdapter';
 
 type TestResultProps = { result: TestResultData; platform: TelegramPlatform; onBack: () => void; onRetake: () => void };
 export function TestResult({ result, platform, onBack, onRetake }: TestResultProps) {
   const [showReview, setShowReview] = useState(false);
-  useEffect(() => {
-    platform.showBackButton(onBack);
-    window.addEventListener('popstate', onBack);
-    return () => { platform.hideBackButton(); window.removeEventListener('popstate', onBack); };
-  }, [onBack, platform]);
+  useTelegramBackButton(platform, onBack);
   const { percent, wrong, skipped } = resultSummary(result);
   const questions = useMemo(() => questionsForTest(result.test.id), [result.test.id]);
   const submittedIds = new Set(result.answers.map(answer => answer.questionId));

@@ -27,7 +27,7 @@ try {
           ready(){}, expand(){}, requestFullscreen(){},
           onEvent(e,c){if(!testEvents.has(e))testEvents.set(e,new Set());testEvents.get(e).add(c)},
           offEvent(e,c){testEvents.get(e)?.delete(c)},
-          BackButton:{show(){},hide(){},onClick(c){testBackCallbacks.add(c)},offClick(c){testBackCallbacks.delete(c)}}}};
+          BackButton:{isVisible:false,show(){this.isVisible=true},hide(){this.isVisible=false},onClick(c){testBackCallbacks.add(c)},offClick(c){testBackCallbacks.delete(c)}}}};
       ` }));
       const safeTop = mode === 'fullscreen' ? 104 : 0;
       const bottom = mode === 'browser' ? 8 : 34;
@@ -106,6 +106,7 @@ try {
       assert.equal(await page.evaluate(() => testBackCallbacks.size), expectedBack);
       await page.evaluate(() => {
         document.querySelector('.test-session__content h2').textContent = 'Длинный вопрос по анатомии. '.repeat(24);
+        document.querySelector('.test-explanation p').textContent='Длинное объяснение медицинского ответа. '.repeat(50);
         document.querySelectorAll('.test-choice__text').forEach(el => {el.textContent = 'Длинный вариант ответа с медицинскими терминами. '.repeat(10);});
       });
       assert.ok(await page.locator('.test-session__content').evaluate(el => el.scrollWidth <= el.clientWidth));

@@ -11,6 +11,7 @@ import './styles/app.css';
 import './styles/tokens.css';
 import './features/tests/TestsExperience.css';
 import './styles/motion.css';
+import './styles/hotfix-6.1.1.css';
 
 export default function App() {
   const platform = useMemo(() => createTelegramPlatformAdapter(), []);

@@ -1,6 +1,9 @@
 export type TelegramPlatform = {
   readonly isTelegram: boolean;
   readonly canUseBackButton: boolean;
+  getBackButtonSnapshot(): boolean;
+  subscribeBackButton(listener: () => void): () => void;
+  bindBackButton(onClick: () => void): () => void;
   init(): void;
   dispose(): void;
   ready(): void;
@@ -26,6 +29,12 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
   let initialized = false;
   let backCallback: (() => void) | undefined;
   let backAttached = false;
+  let attachedBackButton: TelegramWebApp['BackButton'];
+  let backOwner: symbol | undefined;
+  let backMonitor: ReturnType<typeof window.setInterval> | undefined;
+  let nativeBackVisible = false;
+  let dispatchingBack = false;
+  const backListeners = new Set<() => void>();
   let unzoomedViewport: { height: number; offsetTop: number } | undefined;
   const root = () => document.documentElement;
   let subscriptions: typeof events = [];
@@ -78,20 +87,89 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
     ['viewportChanged', sync], ['safeAreaChanged', sync], ['contentSafeAreaChanged', sync],
     ['fullscreenChanged', fullscreenChanged], ['fullscreenFailed', fullscreenFailed],
   ];
-  // A single stable bridge prevents stale React callbacks from accumulating.
-  const backBridge = () => backCallback?.();
+  const readTelegram = () => {
+    const api = window.Telegram?.WebApp;
+    return api && (api.initData || (api.platform && api.platform !== 'unknown')) ? api : undefined;
+  };
+  const publishBack = () => {
+    // isVisible is SDK state, not proof of pixels drawn by the native client.
+    const visible = Boolean(initialized && backCallback && backAttached && attachedBackButton === telegram?.BackButton && attachedBackButton?.isVisible === true);
+    if (visible === nativeBackVisible) return;
+    nativeBackVisible = visible;
+    for (const listener of backListeners) listener();
+  };
+  const backBridge = () => {
+    if (dispatchingBack || !backCallback) return;
+    dispatchingBack = true;
+    try { backCallback(); } finally { queueMicrotask(() => { dispatchingBack = false; }); }
+  };
   const detachBack = () => {
-    if (backAttached) invoke(() => telegram?.BackButton?.offClick(backBridge));
+    if (backAttached) {
+      invoke(() => attachedBackButton?.offClick(backBridge));
+      invoke(() => attachedBackButton?.hide());
+    }
     backAttached = false;
-    invoke(() => telegram?.BackButton?.hide());
+    attachedBackButton = undefined;
+    publishBack();
   };
   const attachBack = () => {
-    if (!telegram?.BackButton?.onClick || !telegram.BackButton.offClick || !backCallback) return;
-    if (!backAttached) {
-      telegram.BackButton.onClick(backBridge);
-      backAttached = true;
+    if (!initialized || !adapter.canUseBackButton || !backCallback) { publishBack(); return; }
+    const button = telegram!.BackButton!;
+    if (attachedBackButton && attachedBackButton !== button) detachBack();
+    try {
+      const newAttachment = !backAttached;
+      if (newAttachment) {
+        button.onClick(backBridge);
+        attachedBackButton = button;
+        backAttached = true;
+      }
+      if (newAttachment || button.isVisible !== true) button.show();
+    } catch {
+      // Registration/show may be rejected by the client. Keep the in-app exit.
+      invoke(() => button.offClick(backBridge));
+      if (attachedBackButton === button) invoke(() => button.hide());
+      backAttached = false;
+      attachedBackButton = undefined;
     }
-    telegram.BackButton.show();
+    publishBack();
+  };
+  const connect = (api: TelegramWebApp | undefined) => {
+    let changed = api !== telegram;
+    if (api !== telegram) {
+      detachBack();
+      for (const [event, callback] of subscriptions) telegram?.offEvent?.(event, callback);
+      subscriptions = [];
+      telegram = api;
+      adapter.ready(); adapter.expand();
+      invoke(() => telegram?.setHeaderColor?.('#f5f7fb'));
+      invoke(() => telegram?.setBackgroundColor?.('#f5f7fb'));
+      if (supports('7.10')) invoke(() => telegram?.setBottomBarColor?.('#ffffff'));
+      if (supports('7.7')) invoke(() => telegram?.disableVerticalSwipes?.());
+    }
+    const next = telegram?.onEvent && telegram.offEvent ? events.filter(([event]) => event === 'viewportChanged' || supports('8.0')) : [];
+    if (next.map(([name]) => name).join() !== subscriptions.map(([name]) => name).join()) {
+      for (const [event, callback] of subscriptions) telegram?.offEvent?.(event, callback);
+      subscriptions = next;
+      for (const [event, callback] of subscriptions) telegram?.onEvent?.(event, callback);
+      changed = true;
+    }
+    if (changed) sync();
+    attachBack();
+  };
+  const stopBackMonitor = () => { if (backMonitor !== undefined) window.clearInterval(backMonitor); backMonitor = undefined; };
+  const startBackMonitor = () => {
+    if (!initialized || !backCallback || backMonitor !== undefined) return;
+    // BackButton has no visibility-change event. Monitor only while a screen owns it.
+    backMonitor = window.setInterval(() => { connect(readTelegram()); }, 250);
+  };
+  const bind = (callback: () => void) => {
+    const owner = Symbol('back-screen'); backOwner = owner; backCallback = callback;
+    if (initialized) connect(readTelegram());
+    startBackMonitor();
+    return () => {
+      if (backOwner !== owner) return;
+      backOwner = undefined; backCallback = undefined; stopBackMonitor(); detachBack();
+    };
   };
   const adapter: TelegramPlatform = {
     get isTelegram() { return Boolean(telegram); },
@@ -99,29 +177,20 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
     init() {
       if (initialized) return;
       initialized = true;
-      const api = window.Telegram?.WebApp;
-      // The SDK also creates WebApp in ordinary browsers; presence alone is insufficient.
-      telegram = api && (api.initData || (api.platform && api.platform !== 'unknown')) ? api : undefined;
-      adapter.ready();
-      adapter.expand();
-      invoke(() => telegram?.setHeaderColor?.('#f5f7fb'));
-      invoke(() => telegram?.setBackgroundColor?.('#f5f7fb'));
-      if (supports('7.10')) invoke(() => telegram?.setBottomBarColor?.('#ffffff'));
-      if (supports('7.7')) invoke(() => telegram?.disableVerticalSwipes?.());
-      if (telegram?.onEvent && telegram.offEvent) {
-        subscriptions = events.filter(([event]) => event === 'viewportChanged' || supports('8.0'));
-        for (const [event, callback] of subscriptions) telegram.onEvent(event, callback);
-      }
+      connect(readTelegram());
       window.addEventListener('resize', sync, { passive: true });
       window.visualViewport?.addEventListener('resize', sync, { passive: true });
       window.visualViewport?.addEventListener('scroll', sync, { passive: true });
       document.addEventListener('visibilitychange', sync);
       sync();
       attachBack();
+      startBackMonitor();
     },
     dispose() {
       if (!initialized) return;
+      stopBackMonitor();
       detachBack();
+      backOwner = undefined;
       backCallback = undefined;
       for (const [event, callback] of subscriptions) telegram?.offEvent?.(event, callback);
       subscriptions = [];
@@ -152,8 +221,11 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
       catch { fullscreenFailed({ error: 'REQUEST_FAILED' }); return false; }
     },
     exitFullscreen: () => { if (supports('8.0')) invoke(() => telegram?.exitFullscreen?.()); },
-    showBackButton(callback) { backCallback = callback; attachBack(); },
-    hideBackButton() { backCallback = undefined; detachBack(); },
+    getBackButtonSnapshot: () => nativeBackVisible,
+    subscribeBackButton(listener) { backListeners.add(listener); return () => { backListeners.delete(listener); }; },
+    bindBackButton: bind,
+    showBackButton(callback) { bind(callback); },
+    hideBackButton() { backOwner = undefined; backCallback = undefined; stopBackMonitor(); detachBack(); },
     hapticSelection: () => { if (supports('6.1')) invoke(() => telegram?.HapticFeedback?.selectionChanged?.()); },
     hapticImpact: () => { if (supports('6.1')) invoke(() => telegram?.HapticFeedback?.impactOccurred?.('light')); },
   };

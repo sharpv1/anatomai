@@ -11,7 +11,8 @@ function environment(overrides = {}) {
   const root = { dataset: {}, style: new Map() };
   root.style.setProperty = root.style.set.bind(root.style);
   root.style.removeProperty = root.style.delete.bind(root.style);
-  const events = new Map(), back = new Set();
+  const events = new Map(), back = new Set(), timers = new Map();
+  let timerId = 0;
   const api = {
     initData: 'test', platform: 'ios', version: '8.0', ready() {}, expand() {},
     viewportHeight: 600, viewportStableHeight: 667,
@@ -19,12 +20,12 @@ function environment(overrides = {}) {
     onEvent(name, callback) { if (!events.has(name)) events.set(name, new Set()); events.get(name).add(callback); },
     offEvent(name, callback) { events.get(name)?.delete(callback); },
     requestFullscreen() {},
-    BackButton: { show() {}, hide() {}, onClick(cb) { back.add(cb); }, offClick(cb) { back.delete(cb); } },
+    BackButton: { isVisible: false, show() { this.isVisible = true; }, hide() { this.isVisible = false; }, onClick(cb) { back.add(cb); }, offClick(cb) { back.delete(cb); } },
     ...overrides,
   };
-  globalThis.window = Object.assign(new EventTarget(), { innerHeight: 667, visualViewport: Object.assign(new EventTarget(), { height: 500 }), Telegram: { WebApp: api } });
+  globalThis.window = Object.assign(new EventTarget(), { innerHeight: 667, setInterval(fn) { timers.set(++timerId,fn);return timerId; }, clearInterval(id) { timers.delete(id); }, visualViewport: Object.assign(new EventTarget(), { height: 500 }), Telegram: { WebApp: api } });
   globalThis.document = Object.assign(new EventTarget(), { documentElement: root });
-  return { root, events, back, api, emit(name, data) { for (const cb of events.get(name) ?? []) cb(data); } };
+  return { root, events, back, api, timers, tick() {for(const fn of [...timers.values()]) fn();}, emit(name, data) { for (const cb of events.get(name) ?? []) cb(data); } };
 }
 
 test('factory is pure; init/dispose are idempotent and support remount', () => {
@@ -134,4 +135,47 @@ test('native BackButton capability requires a supported client and removable cal
   for(const overrides of [{BackButton:undefined},{version:'6.0'},{BackButton:{show(){},hide(){},onClick(){}}},{initData:'',platform:'unknown'}]){
     e=environment(overrides);a=createTelegramPlatformAdapter();a.init();assert.equal(a.canUseBackButton,false);a.dispose();
   }
+});
+
+test('native visibility is reactive, screen owned, and stale release cannot clear a newer screen',()=>{
+ const e=environment();const a=createTelegramPlatformAdapter();a.init();let notices=0;
+ const unsubscribe=a.subscribeBackButton(()=>notices++);const releaseA=a.bindBackButton(()=>{});
+ assert.equal(a.getBackButtonSnapshot(),true);assert.equal(e.back.size,1);
+ const releaseB=a.bindBackButton(()=>{});releaseA();
+ assert.equal(a.getBackButtonSnapshot(),true);assert.equal(e.back.size,1);
+ releaseB();assert.equal(a.getBackButtonSnapshot(),false);assert.equal(e.back.size,0);assert.equal(e.timers.size,0);assert.equal(notices,2);
+ unsubscribe();a.dispose();
+});
+
+test('late SDK and late BackButton support update visibility without React unrelated state changes',()=>{
+ const e=environment();const a=createTelegramPlatformAdapter();delete window.Telegram;a.init();
+ const release=a.bindBackButton(()=>{});assert.equal(a.getBackButtonSnapshot(),false);assert.equal(e.timers.size,1);
+ window.Telegram={WebApp:e.api};e.tick();assert.equal(a.getBackButtonSnapshot(),true);assert.equal(e.back.size,1);
+ release();a.dispose();assert.equal(e.timers.size,0);
+ const f=environment();delete f.api.BackButton.offClick;const b=createTelegramPlatformAdapter();b.init();const cleanup=b.bindBackButton(()=>{});
+ assert.equal(b.getBackButtonSnapshot(),false);f.api.BackButton.offClick=cb=>f.back.delete(cb);f.tick();assert.equal(b.getBackButtonSnapshot(),true);assert.equal(f.back.size,1);cleanup();b.dispose();
+});
+
+test('unknown visibility or rejected show keeps safe in-app fallback and never leaks callbacks',()=>{
+ const e=environment();delete e.api.BackButton.isVisible;e.api.BackButton.show=()=>{};
+ const a=createTelegramPlatformAdapter();a.init();const release=a.bindBackButton(()=>{});
+ assert.equal(a.canUseBackButton,true);assert.equal(a.getBackButtonSnapshot(),false);assert.equal(e.back.size,1);
+ e.api.BackButton.show=()=>{throw Error('client rejected')};e.tick();assert.equal(a.getBackButtonSnapshot(),false);assert.equal(e.back.size,0);
+ e.api.BackButton.show=()=>{e.api.BackButton.isVisible=true};e.tick();assert.equal(a.getBackButtonSnapshot(),true);assert.equal(e.back.size,1);
+ release();a.dispose();assert.equal(e.back.size,0);assert.equal(e.timers.size,0);
+});
+
+test('duplicate native dispatch in the same turn calls exit once and permits a later retry',async()=>{
+ const e=environment();const a=createTelegramPlatformAdapter();a.init();let count=0;const release=a.bindBackButton(()=>count++);
+ const callback=[...e.back][0];callback();callback();assert.equal(count,1);await Promise.resolve();callback();assert.equal(count,2);release();a.dispose();
+});
+
+test('replaced BackButton is rebound, old button is released, unowned client button is not assumed managed',()=>{
+ const e=environment();e.api.BackButton.isVisible=true;const a=createTelegramPlatformAdapter();a.init();
+ assert.equal(a.getBackButtonSnapshot(),false);assert.equal(e.api.BackButton.isVisible,true);
+ const release=a.bindBackButton(()=>{});assert.equal(a.getBackButtonSnapshot(),true);
+ const old=e.api.BackButton;const replacementCallbacks=new Set();
+ e.api.BackButton={isVisible:false,show(){this.isVisible=true},hide(){this.isVisible=false},onClick(cb){replacementCallbacks.add(cb)},offClick(cb){replacementCallbacks.delete(cb)}};
+ e.tick();assert.equal(e.back.size,0);assert.equal(old.isVisible,false);assert.equal(replacementCallbacks.size,1);assert.equal(a.getBackButtonSnapshot(),true);
+ release();a.dispose();assert.equal(replacementCallbacks.size,0);
 });
