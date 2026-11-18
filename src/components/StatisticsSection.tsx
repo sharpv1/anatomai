@@ -1,9 +1,7 @@
-type StatisticsSectionProps = { onDetails: () => void };
-
-export function StatisticsSection({ onDetails }: StatisticsSectionProps) {
+export function StatisticsSection() {
   return (
     <>
-      <div className="section"><h3>Твоя статистика</h3><button className="see-all" onClick={onDetails}>Подробнее</button></div>
+      <div className="section"><h3>Твоя статистика</h3></div>
       <div className="stats">
         <div className="stat"><div className="stat-icon">✓</div><div><b>78%</b><span>Средний результат</span><em className="stat-trend">↗ +8% за неделю</em></div></div>
         <div className="stat"><div className="stat-icon">◷</div><div><b>12 ч</b><span>Время обучения</span><em className="stat-trend">● 3 дня активности</em></div></div>
