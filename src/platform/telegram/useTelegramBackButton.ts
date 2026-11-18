@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import type { TelegramPlatform } from './TelegramPlatformAdapter';
 
-/** A screen owns one native callback and a reactive, conservative visibility snapshot. */
+/** A screen owns one native callback and a reactive host-context snapshot. */
 export function useTelegramBackButton(platform: TelegramPlatform, onBack: () => void) {
   const latest = useRef(onBack);
   const dispatching = useRef(false);
@@ -11,11 +11,12 @@ export function useTelegramBackButton(platform: TelegramPlatform, onBack: () => 
     dispatching.current = true;
     try { latest.current(); } finally { queueMicrotask(() => { dispatching.current = false; }); }
   }, []);
-  const nativeVisible = useSyncExternalStore(platform.subscribeBackButton, platform.getBackButtonSnapshot, () => false);
+  // Telegram client chrome can provide Back without mirroring BackButton.isVisible.
+  const isTelegramContext = useSyncExternalStore(platform.subscribeBackButton, platform.getTelegramContextSnapshot, () => false);
   useEffect(() => {
     const release = platform.bindBackButton(requestBack);
     window.addEventListener('popstate', requestBack);
     return () => { release(); window.removeEventListener('popstate', requestBack); };
   }, [platform, requestBack]);
-  return { nativeVisible, requestBack };
+  return { isTelegramContext, requestBack };
 }

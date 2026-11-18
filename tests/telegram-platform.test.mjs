@@ -156,7 +156,7 @@ test('late SDK and late BackButton support update visibility without React unrel
  assert.equal(b.getBackButtonSnapshot(),false);f.api.BackButton.offClick=cb=>f.back.delete(cb);f.tick();assert.equal(b.getBackButtonSnapshot(),true);assert.equal(f.back.size,1);cleanup();b.dispose();
 });
 
-test('unknown visibility or rejected show keeps safe in-app fallback and never leaks callbacks',()=>{
+test('unknown visibility or rejected show does not change host context or leak callbacks',()=>{
  const e=environment();delete e.api.BackButton.isVisible;e.api.BackButton.show=()=>{};
  const a=createTelegramPlatformAdapter();a.init();const release=a.bindBackButton(()=>{});
  assert.equal(a.canUseBackButton,true);assert.equal(a.getBackButtonSnapshot(),false);assert.equal(e.back.size,1);
@@ -179,3 +179,21 @@ test('replaced BackButton is rebound, old button is released, unowned client but
  e.tick();assert.equal(e.back.size,0);assert.equal(old.isVisible,false);assert.equal(replacementCallbacks.size,1);assert.equal(a.getBackButtonSnapshot(),true);
  release();a.dispose();assert.equal(replacementCallbacks.size,0);
 });
+
+ test('Telegram context is reactive and independent of native Back visibility',()=>{
+  const e=environment();delete window.Telegram;const a=createTelegramPlatformAdapter();a.init();let notices=0;
+  const unsub=a.subscribeBackButton(()=>notices++);const release=a.bindBackButton(()=>{});
+  assert.equal(a.getTelegramContextSnapshot(),false);
+  delete e.api.BackButton.isVisible;e.api.BackButton.show=()=>{};window.Telegram={WebApp:e.api};e.tick();
+  assert.equal(a.getTelegramContextSnapshot(),true);assert.equal(a.getBackButtonSnapshot(),false);assert.equal(notices,1);
+  delete window.Telegram;e.tick();assert.equal(a.getTelegramContextSnapshot(),false);assert.equal(notices,2);
+  release();unsub();a.dispose();assert.equal(e.timers.size,0);
+ });
+ test('SDK presence and unknown/malformed platform do not imply Telegram launch',()=>{
+  for(const overrides of [{initData:'',platform:'unknown'},{initData:'',platform:'invented'},{initData:' ',platform:undefined},{ready:undefined}]){
+   environment(overrides);const a=createTelegramPlatformAdapter();a.init();assert.equal(a.getTelegramContextSnapshot(),false);a.dispose();
+  }
+  for(const overrides of [{initData:'',platform:'ios'},{platform:'unknown',initData:'query_id=demo'},{BackButton:undefined},{version:'6.0'}]){
+   environment(overrides);const a=createTelegramPlatformAdapter();a.init();assert.equal(a.getTelegramContextSnapshot(),true);a.dispose();assert.equal(a.getTelegramContextSnapshot(),false);
+  }
+ });
