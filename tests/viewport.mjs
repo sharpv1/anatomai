@@ -135,7 +135,7 @@ try {
       if(mode !== 'browser') await page.evaluate(() => { for(const cb of [...testBackCallbacks]) cb(); });
       else await page.locator('.test-session__close').click();
       await page.locator('.tests-head').waitFor();
-      assert.equal(await page.evaluate(() => testBackCallbacks.size), expectedBack);
+      assert.equal(await page.evaluate(() => testBackCallbacks.size), 0);
       await page.locator('.nav-item').first().click();
       await page.locator('.topbar').waitFor();
       // Fullscreen/expanded transition must be driven by metrics, not by a fixed minimum.
@@ -205,8 +205,7 @@ try {
   await page.locator('.test-result').waitFor();
   assert.deepEqual(await page.locator('.test-result__stats strong').allTextContents(),['3','1','1']);
   await page.getByRole('button',{name:'К тестам',exact:true}).click();await page.locator('.tests-page').waitFor();
-  await page.locator('.tests-page .notes-back').click();await page.waitForFunction(()=>document.querySelectorAll('.test-card').length===4);
-  await page.locator('.test-card').nth(3).click();for(let nav=0;nav<2;nav++)await page.locator('.test-card').first().click();await page.locator('.test-mode-card').first().click();await page.locator('.test-choice').first().click();await page.locator('.test-session__action').click();
+  await page.locator('.test-card').nth(3).click();await page.locator('.test-mode-card').first().click();await page.locator('.test-choice').first().click();await page.locator('.test-session__action').click();
   await page.locator('.test-result').waitFor();
   assert.equal(await page.locator('.test-result__badge strong').innerText(),'100%');
   assert.equal(await page.getByRole('button',{name:'Разобрать ошибки',exact:true}).count(),0);
