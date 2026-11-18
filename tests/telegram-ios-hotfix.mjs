@@ -49,14 +49,14 @@ try{
   p.removeAllListeners('dialog');p.on('dialog',dialog=>dialog.accept());
   const before=await p.evaluate(()=>transitions);
   if(native)await p.evaluate(()=>{for(const cb of [...backCallbacks])cb();});else await p.locator('.test-session__close').click();
-  await p.locator('.tests-page').waitFor();assert.equal(await p.evaluate(()=>transitions),before+1);assert.equal(await p.evaluate(()=>backCallbacks.size),['browser','browser-sdk'].includes(mode)?0:1);
+  await p.locator('.tests-page').waitFor();assert.equal(await p.evaluate(()=>transitions),before+1);assert.equal(await p.evaluate(()=>backCallbacks.size),0);
   for(let nav=0;nav<3 && await p.locator('.test-mode-picker').count()===0;nav++) await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();
   assert.equal(await p.evaluate(()=>backCallbacks.size),['browser','browser-sdk'].includes(mode)?0:1);
   // Finish via skips, then leave result with exactly one transition.
   for(let i=0;i<questionsForTest('anatomy').length;i++)await p.locator('.test-session__skip').click();
   await p.locator('.test-result').waitFor();const resultBefore=await p.evaluate(()=>transitions);
   if(native)await p.evaluate(()=>{for(const cb of [...backCallbacks]){cb();cb();}});else await p.getByRole('button',{name:'К тестам',exact:true}).click();
-  await p.locator('.tests-page').waitFor();assert.equal(await p.evaluate(()=>transitions),resultBefore+1);assert.equal(await p.evaluate(()=>backCallbacks.size),['browser','browser-sdk'].includes(mode)?0:1);
+  await p.locator('.tests-page').waitFor();assert.equal(await p.evaluate(()=>transitions),resultBefore+1);assert.equal(await p.evaluate(()=>backCallbacks.size),0);
   console.log(`PASS Back lifecycle ${mode}/${fullscreen?'fullscreen':'expanded'}: fallback/reactivity, cancel, one exit, re-entry, result cleanup`);await p.close();
  }
  for(const score of [0,1,2,4,5]){
