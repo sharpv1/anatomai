@@ -2,6 +2,7 @@ export type TelegramPlatform = {
   readonly isTelegram: boolean;
   readonly canUseBackButton: boolean;
   getBackButtonSnapshot(): boolean;
+  getTelegramContextSnapshot(): boolean;
   subscribeBackButton(listener: () => void): () => void;
   bindBackButton(onClick: () => void): () => void;
   init(): void;
@@ -33,6 +34,7 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
   let backOwner: symbol | undefined;
   let backMonitor: ReturnType<typeof window.setInterval> | undefined;
   let nativeBackVisible = false;
+  let telegramContext = false;
   let dispatchingBack = false;
   const backListeners = new Set<() => void>();
   let unzoomedViewport: { height: number; offsetTop: number } | undefined;
@@ -89,13 +91,19 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
   ];
   const readTelegram = () => {
     const api = window.Telegram?.WebApp;
-    return api && (api.initData || (api.platform && api.platform !== 'unknown')) ? api : undefined;
+    // The SDK script also exists in browsers. Require launch data or a known host
+    // platform together with the WebApp lifecycle API; this is UI detection, not auth.
+    const host = ['ios', 'android', 'android_x', 'tdesktop', 'macos', 'weba', 'webk', 'unigram'].includes(api?.platform ?? '');
+    const lifecycle = typeof api?.ready === 'function' && typeof api?.expand === 'function';
+    return api && lifecycle && (api.initData?.trim() || host) ? api : undefined;
   };
   const publishBack = () => {
     // isVisible is SDK state, not proof of pixels drawn by the native client.
     const visible = Boolean(initialized && backCallback && backAttached && attachedBackButton === telegram?.BackButton && attachedBackButton?.isVisible === true);
-    if (visible === nativeBackVisible) return;
+    const context = initialized && Boolean(telegram);
+    if (visible === nativeBackVisible && context === telegramContext) return;
     nativeBackVisible = visible;
+    telegramContext = context;
     for (const listener of backListeners) listener();
   };
   const backBridge = () => {
@@ -201,6 +209,7 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
       telegram = undefined;
       unzoomedViewport = undefined;
       initialized = false;
+      publishBack();
       for (const edge of ['top', 'bottom', 'left', 'right']) {
         root().style.removeProperty(`--tg-safe-${edge}`);
         root().style.removeProperty(`--tg-content-${edge}`);
@@ -222,6 +231,7 @@ export function createTelegramPlatformAdapter(): TelegramPlatform {
     },
     exitFullscreen: () => { if (supports('8.0')) invoke(() => telegram?.exitFullscreen?.()); },
     getBackButtonSnapshot: () => nativeBackVisible,
+    getTelegramContextSnapshot: () => telegramContext,
     subscribeBackButton(listener) { backListeners.add(listener); return () => { backListeners.delete(listener); }; },
     bindBackButton: bind,
     showBackButton(callback) { bind(callback); },

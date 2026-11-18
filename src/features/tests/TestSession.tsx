@@ -16,7 +16,7 @@ export function TestSession({ test, platform, onComplete, onExit }: TestSessionP
   const contentRef = useRef<HTMLDivElement>(null);
   const [discipline, category = ''] = test.title.split(':');
   const exit = useCallback(() => { if (!session.isDirty || window.confirm('Выйти из теста? Прогресс будет потерян.')) onExit(); }, [onExit, session.isDirty]);
-  const { nativeVisible, requestBack } = useTelegramBackButton(platform, exit);
+  const { isTelegramContext, requestBack } = useTelegramBackButton(platform, exit);
   useEffect(() => { contentRef.current?.scrollTo(0, 0); }, [session.questionIndex]);
 
   if (!mode) return <section className="test-mode-picker">
@@ -40,9 +40,9 @@ export function TestSession({ test, platform, onComplete, onExit }: TestSessionP
   };
   const actionLabel = isLast ? (learning ? 'Завершить тест' : 'Завершить экзамен') : 'Далее';
 
-  return <section className={`test-session${nativeVisible ? ' test-session--native-back' : ''}${learning ? '' : ' test-session--exam'}`} aria-label="Прохождение теста">
+  return <section className={`test-session${isTelegramContext ? ' test-session--native-back' : ''}${learning ? '' : ' test-session--exam'}`} aria-label="Прохождение теста">
     <header className="test-session__top">
-      {!nativeVisible && <button className="test-session__close" onClick={requestBack} aria-label="Назад к тестам">‹</button>}
+      {!isTelegramContext && <button className="test-session__close" onClick={requestBack} aria-label="Назад к тестам">‹</button>}
       <div className="test-session__meta"><span title={test.title}>{discipline.trim()}{category && ` · ${category.trim()}`}</span><strong>Вопрос {session.questionIndex + 1} из {questions.length}</strong>
         <div className="test-session__track" role="progressbar" aria-label="Завершённые вопросы" aria-valuemin={0} aria-valuemax={questions.length} aria-valuenow={completed}><b style={{ width: `${(completed / questions.length) * 100}%` }} /></div>
         <div className="test-session__context"><p className="test-session__mode">{learning ? 'Обучение' : 'Экзамен'}</p>{streak >= 2 && <span className="test-streak" role="status">{streak} подряд</span>}</div>

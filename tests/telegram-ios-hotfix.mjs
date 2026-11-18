@@ -15,6 +15,7 @@ function sdk(mode,fullscreen){return `
  if(!knownVisibility)delete back.isVisible;
  if(${mode==='late-back'})delete back.offClick;
  if(${!['browser','late-sdk'].includes(mode)})window.Telegram={WebApp:pendingApi};
+ if(${mode==='browser-sdk'}){pendingApi.initData='';pendingApi.platform='unknown';}
  `;}
 async function openQuestion(mode,fullscreen,target=url){
  const p=await browser.newPage({viewport:{width:390,height:744},reducedMotion:'reduce'});
@@ -22,17 +23,24 @@ async function openQuestion(mode,fullscreen,target=url){
  await p.goto(target);await p.locator('.nav-item').nth(1).click();await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();return p;
 }
 try{
- for(const fullscreen of [false,true])for(const mode of ['native','late-back','late-sdk','show-fails','unknown-visible','browser']){
+ for(const fullscreen of [false,true])for(const mode of ['native','late-back','late-sdk','show-fails','unknown-visible','browser','browser-sdk']){
   const p=await openQuestion(mode,fullscreen);
-  const initiallyNative=mode==='native';
+  const initiallyNative=!['browser','browser-sdk','late-sdk'].includes(mode);
   await p.waitForFunction(expected=>document.querySelectorAll('.test-session__close').length===expected,initiallyNative?0:1);
+  if(mode==='show-fails'){
+   assert.equal(await p.evaluate(()=>backCallbacks.size),0);
+   await p.evaluate(()=>dispatchEvent(new PopStateEvent('popstate')));
+   await p.locator('.tests-page').waitFor();
+   await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();
+   assert.equal(await p.locator('.test-session__close').count(),0);
+  }
   if(['late-back','late-sdk','show-fails'].includes(mode)){
    await p.evaluate(mode=>{if(mode==='late-sdk')window.Telegram={WebApp:pendingApi};if(mode==='late-back'){pendingApi.BackButton.offClick=cb=>backCallbacks.delete(cb);pendingApi.BackButton.isVisible=true;}if(mode==='show-fails')backFail=false;},mode);
-   await p.waitForFunction(()=>document.querySelectorAll('.test-session__close').length===0);
+   await p.waitForFunction(()=>document.querySelectorAll('.test-session__close').length===0&&backCallbacks.size===1);
   }
-  const native=!['browser','unknown-visible'].includes(mode);
-  assert.equal(await p.evaluate(()=>backCallbacks.size),mode==='browser'?0:1);
-  if(native)assert.ok(await p.evaluate(()=>pendingApi.BackButton.isVisible===true&&pendingApi.BackButton.showCount>0));
+  const native=!['browser','browser-sdk'].includes(mode);
+  assert.equal(await p.evaluate(()=>backCallbacks.size),['browser','browser-sdk'].includes(mode)?0:1);
+  if(native&&mode!=='unknown-visible')assert.ok(await p.evaluate(()=>pendingApi.BackButton.isVisible===true&&pendingApi.BackButton.showCount>0));
   await p.locator('.test-choice').first().click();let dialogs=0;
   p.on('dialog',dialog=>{dialogs++;return dialog.dismiss()});
   if(native)await p.evaluate(()=>{for(const cb of [...backCallbacks]){cb();cb();}dispatchEvent(new PopStateEvent('popstate'));});
@@ -43,7 +51,7 @@ try{
   if(native)await p.evaluate(()=>{for(const cb of [...backCallbacks])cb();});else await p.locator('.test-session__close').click();
   await p.locator('.tests-page').waitFor();assert.equal(await p.evaluate(()=>transitions),before+1);assert.equal(await p.evaluate(()=>backCallbacks.size),0);
   await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();
-  assert.equal(await p.evaluate(()=>backCallbacks.size),mode==='browser'?0:1);
+  assert.equal(await p.evaluate(()=>backCallbacks.size),['browser','browser-sdk'].includes(mode)?0:1);
   // Finish via skips, then leave result with exactly one transition.
   for(let i=0;i<questionsForTest('anatomy').length;i++)await p.locator('.test-session__skip').click();
   await p.locator('.test-result').waitFor();const resultBefore=await p.evaluate(()=>transitions);
