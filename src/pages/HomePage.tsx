@@ -1,19 +1,14 @@
 import { demoDailyFocusMetrics } from '../data/dailyFocus';
-import { AppHeader } from '../components/AppHeader';
 import { DailyFocusCard } from '../components/DailyFocusCard';
-import { StatisticsSection } from '../components/StatisticsSection';
 import { SubjectsSection } from '../components/SubjectsSection';
 
-type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => void };
+type HomePageProps = { onStartTest: () => void; onNotes: () => void };
 
-export function HomePage({ onStartTest, onNotify }: HomePageProps) {
+export function HomePage({ onStartTest, onNotes }: HomePageProps) {
   return <>
-    <AppHeader onNotifications={() => onNotify('Новых уведомлений нет')} />
     <DailyFocusCard onStart={onStartTest} metrics={demoDailyFocusMetrics} />
-    <StatisticsSection onDetails={() => onNotify('Открываем статистику')} />
-    <SubjectsSection onAll={() => onNotify('Все предметы')} />
-    <div className="section"><h3>Повтори сегодня</h3><button className="see-all" onClick={() => onNotify('Открываем конспекты')}>Все конспекты</button></div>
-    <section className="review"><div className="review-art">🦴</div><div className="review-copy"><b>Кости верхней конечности</b><p>12 карточек · 4 минуты на повторение</p></div><button className="review-arrow" onClick={() => onNotify('Повторение началось')}>→</button></section>
-    <section className="tip"><div className="tip-icon">💡</div><div><b>Совет на сегодня</b><p>Повторяй материал короткими подходами — так знания закрепляются лучше.</p></div></section>
+    <SubjectsSection onAll={onStartTest} />
+    <div className="section"><h3>Повтори сегодня</h3></div>
+    <button className="review" onClick={onNotes}><span className="review-art" aria-hidden="true">🦴</span><span className="review-copy"><b>Опорно-двигательная система</b><small>Открыть конспекты</small></span><span aria-hidden="true">›</span></button>
   </>;
 }
