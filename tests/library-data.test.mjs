@@ -31,3 +31,9 @@ test('Telegram avatar uses provided HTTPS photo and supports SDK user fallback',
  }
  assert.deepEqual(telegramProfile(),{name:null,photoUrl:null});
 });
+
+test('SDK identity takes precedence over incomplete launch user and normalizes Unicode',()=>{
+ const initData=new URLSearchParams({user:JSON.stringify({first_name:'Demo'})}).toString();
+ assert.equal(telegramProfile({initData,initDataUnsafe:{user:{first_name:'  A\u0301нна\n',last_name:' Иванова '}}}).name,'Áнна Иванова');
+ assert.equal(telegramProfile({initData:'user={}',initDataUnsafe:{user:{first_name:'Айдана'}}}).name,'Айдана');
+});

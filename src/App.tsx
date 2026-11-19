@@ -20,6 +20,7 @@ import './styles/library-7.0.css';
 import './styles/refinement-7.2.css';
 import { StatisticsPage } from './pages/StatisticsPage';
 import type { CompletedTest } from './features/library/statistics';
+import './styles/refinement-7.8.css';
 
 export default function App() {
   const platform = useMemo(() => createTelegramPlatformAdapter(), []);
@@ -53,7 +54,7 @@ export default function App() {
   const inTestFlow = route === 'tests' && testScreen !== 'catalog';
 
   return <AppShell route={route} onRouteChange={goTo} toast={toast} onCloseToast={() => setToast('')} hideNavigation={inTestFlow || statistics}>
-    <div className="page-view" hidden={statistics || route !== 'home'}><HomePage onStartTest={() => goTo('tests')} onNotify={notify} onStatistics={openStatistics} onNotes={() => goTo('notes')} onPremium={openHomePremium} /></div>
+    <div className="page-view" hidden={statistics || route !== 'home'}><HomePage onStartTest={() => goTo('tests')} onNotify={notify} onStatistics={openStatistics} onNotes={() => goTo('notes')} onPremium={openHomePremium} entries={entries} platform={platform} /></div>
     <div className="page-view" hidden={statistics || route !== 'tests' || testScreen !== 'catalog'}><TestsPage onSelectTest={openTest} platform={platform} active={!statistics && route === 'tests' && testScreen === 'catalog'} /></div>
     <div className="page-view" hidden={statistics || route !== 'notes'}><NotesPage /></div>
     <div className="page-view" hidden={statistics || route !== 'profile'}><ProfilePage platform={platform} entries={entries} onReset={() => setEntries([])} /></div>

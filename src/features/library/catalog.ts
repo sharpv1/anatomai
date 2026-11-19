@@ -14,7 +14,7 @@ function userFromLaunchData(initData: string | undefined): unknown {
 function displayIdentity(raw: unknown): { name: string | null; photoUrl: string | null } {
   if (!raw || typeof raw !== 'object') return { name: null, photoUrl: null };
   const user = raw as Record<string, unknown>;
-  const name = [user.first_name, user.last_name].filter((v): v is string => typeof v === 'string' && Boolean(v.trim())).map(v => v.trim()).join(' ')
+  const name = [user.first_name, user.last_name].filter((v): v is string => typeof v === 'string' && Boolean(v.trim())).map(v => v.normalize('NFC').replace(/[\u0000-\u001f\u007f]/g,' ').trim().replace(/\s+/g,' ')).join(' ')
     || (typeof user.username === 'string' && user.username.trim() ? `@${user.username.trim()}` : null);
   let photoUrl: string | null = null;
   try {
@@ -29,5 +29,7 @@ export function profileDisplayName(initData: string | undefined): string | null 
   return displayIdentity(userFromLaunchData(initData)).name;
 }
 export function telegramProfile(api?: { initData?: string; initDataUnsafe?: { user?: unknown } }) {
-  return displayIdentity(userFromLaunchData(api?.initData) ?? api?.initDataUnsafe?.user);
+  const sdk=displayIdentity(api?.initDataUnsafe?.user);
+  const launch=displayIdentity(userFromLaunchData(api?.initData));
+  return {name:sdk.name??launch.name,photoUrl:sdk.photoUrl??launch.photoUrl};
 }
