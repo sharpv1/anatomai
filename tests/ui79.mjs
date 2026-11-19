@@ -3,9 +3,9 @@ import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 // Serve the previous PR #21 dist separately to compare protected Home regions.
-const url = process.env.AFTER_URL || 'http://127.0.0.1:4596';
-const beforeUrl = process.env.BEFORE_URL || 'http://127.0.0.1:4597';
-const screenshots = 'docs/screenshots/ui-7.9-compact2';
+const url = process.env.AFTER_URL || 'http://127.0.0.1:4696';
+const beforeUrl = process.env.BEFORE_URL || 'http://127.0.0.1:4697';
+const screenshots = 'docs/screenshots/home-layout-8.0';
 mkdirSync(screenshots, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || '/usr/bin/chromium',
@@ -59,6 +59,19 @@ try {
   for (const width of [375, 390, 430]) {
     for (const mode of ['browser', 'expanded', 'fullscreen']) {
       const { page, release, errors } = await open(url, width, 812, mode, true);
+      const home = page.locator('.page-view').first();
+      assert.deepEqual(await home.evaluate(el => {
+        const blocks=['topbar','hero','subjects','review','stats','study-promos','tip'];
+        return [...el.children].flatMap(child=>blocks.filter(name=>child.classList.contains(name)));
+      }), ['topbar','hero','subjects','review','stats','study-promos','tip']);
+      assert.equal(await home.locator('.hero + .section h3').innerText(),'Предметы');
+      assert.equal(await home.locator('.subjects + .section h3').innerText(),'Повтори сегодня');
+      assert.equal(await home.locator('.review + .section h3').innerText(),'Твоя статистика');
+      assert.equal(await home.locator('.activity,.chart,.days').count(),0);
+      assert.equal(await home.locator('.stat').count(),2);
+      assert.equal(await home.locator('.stat b').first().innerText(),'—');
+      assert.equal(await home.locator('.stat b').nth(1).innerText(),'0 сек');
+      assert.equal(await home.evaluate(el=>el.lastElementChild.classList.contains('tip')),true);
       const carousel = page.locator('.study-promos');
       await carousel.scrollIntoViewIfNeeded();
       const cards = carousel.locator('button');
@@ -67,7 +80,7 @@ try {
         ['exam-preparation.webp', 'medical-notes.webp', 'mistake-review.webp', 'anatomai-premium.webp']);
       assert.equal(await carousel.locator('strong,span,svg').count(), 0);
       const before = await carousel.boundingBox();
-      const nextSectionBefore = await page.locator('.stats').boundingBox();
+      const nextSectionBefore = await page.locator('.tip').boundingBox();
       release();
       // A fourth lazy image may intentionally remain unfetched until scrolled
       // into view. Check initial stability with the first visible image only.
@@ -75,7 +88,7 @@ try {
       const after = await carousel.boundingBox();
       assert.equal(before.height, after.height, 'Images must reserve height before decoding');
       assert.ok(after.height >= 105 && after.height <= 115);
-      assert.equal(nextSectionBefore.y, (await page.locator('.stats').boundingBox()).y);
+      assert.equal(nextSectionBefore.y, (await page.locator('.tip').boundingBox()).y);
 
       const geometry = await carousel.evaluate(el => {
         const box = el.getBoundingClientRect();
@@ -156,6 +169,12 @@ try {
         await page.screenshot({ path: `${screenshots}/home-carousel-${width}.png` });
       }
 
+      await page.locator('.shell__content').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+      const tip=await page.locator('.tip').boundingBox(), navigation=await page.locator('.bottom-nav').boundingBox();
+      assert.ok(tip.y+tip.height <= navigation.y-8,'Last Home block must clear the navigation');
+      if(mode==='fullscreen')await page.screenshot({path:`${screenshots}/home-bottom-${width}.png`});
+      await carousel.scrollIntoViewIfNeeded();
+
       // Actual touch input: horizontal carousel gesture and vertical parent scrolling.
       await carousel.evaluate(el => { el.scrollLeft = 0; });
       const box = await carousel.boundingBox();
@@ -200,9 +219,15 @@ try {
       await cards.last().click();
       await page.getByRole('button', { name: 'Понятно' }).click();
       await page.getByRole('dialog').waitFor({ state: 'detached' });
+      await home.getByRole('button',{name:'Подробнее',exact:true}).click();
+      await page.locator('.statistics-page').waitFor({state:'visible'});
+      assert.equal(await page.locator('.statistics-page .profile-week li').count(),7);
+      await page.goBack();
+      await home.waitFor({state:'visible'});
+      assert.equal(await home.locator('.activity').count(),0);
       assert.deepEqual(errors, []);
       await page.close();
-      console.log(`PASS ${width} ${mode}: 4 approved banners, 105–115px height, 78–82% width, no decorative frame, safe cover crop, touch, routes/dialogs, Back cleanup, overflow`);
+      console.log(`PASS ${width} ${mode}: Home block order, statistics retained, no Home week, tip clearance, compact promos/touch/routes, Details statistics week retained`);
     }
   }
 
@@ -210,7 +235,7 @@ try {
   const previous = (await open(beforeUrl, 390, 812, 'browser')).page;
   const current = (await open(url, 390, 812, 'browser')).page;
   for (const p of [previous, current]) await p.locator('.shell__content').evaluate(el => { el.style.visibility = 'hidden'; });
-  for (const selector of ['.topbar', '.hero', '.stats', '.activity', '.subjects', '.bottom-nav']) {
+  for (const selector of ['.topbar', '.hero', '.subjects', '.review', '.stats', '.bottom-nav']) {
     // The new image aspect ratio moves later sections. Compare their own rendering
     // at identical integer coordinates, without a different glass-nav backdrop.
     for (const p of [previous, current]) {
