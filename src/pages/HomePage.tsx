@@ -1,15 +1,17 @@
+import { StudyPromos } from '../components/StudyPromos';
 import { demoDailyFocusMetrics } from '../data/dailyFocus';
 import { AppHeader } from '../components/AppHeader';
 import { DailyFocusCard } from '../components/DailyFocusCard';
 import { StatisticsSection } from '../components/StatisticsSection';
 import { SubjectsSection } from '../components/SubjectsSection';
 
-type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => void; onStatistics: () => void };
+type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => void; onStatistics: () => void; onNotes: () => void; onPremium: () => void };
 
-export function HomePage({ onStartTest, onNotify, onStatistics }: HomePageProps) {
+export function HomePage({ onStartTest, onNotify, onStatistics, onNotes, onPremium }: HomePageProps) {
   return <>
     <AppHeader onNotifications={() => onNotify('Новых уведомлений нет')} />
     <DailyFocusCard onStart={onStartTest} metrics={demoDailyFocusMetrics} />
+    <StudyPromos onTests={onStartTest} onNotes={onNotes} onPremium={onPremium} />
     <StatisticsSection onDetails={onStatistics} />
     <SubjectsSection onAll={() => onNotify('Все предметы')} />
     <div className="section"><h3>Повтори сегодня</h3><button className="see-all" onClick={() => onNotify('Открываем конспекты')}>Все конспекты</button></div>

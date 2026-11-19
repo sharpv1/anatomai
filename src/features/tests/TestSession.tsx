@@ -8,11 +8,11 @@ import './TestSession.css';
 import './TestScreens.css';
 import { useTelegramBackButton } from '../../platform/telegram/useTelegramBackButton';
 
-type TestSessionProps = { test: TestDefinition; platform: TelegramPlatform; onComplete: (result: TestResultData) => void; onExit: () => void };
+type TestSessionProps = { test: TestDefinition; platform: TelegramPlatform; onComplete: (result: TestResultData) => void; onExit: () => void; initialMode?: TestMode };
 
-export function TestSession({ test, platform, onComplete, onExit }: TestSessionProps) {
+export function TestSession({ test, platform, onComplete, onExit, initialMode }: TestSessionProps) {
   const questions = questionsForTest(test.id);
-  const [mode, setMode] = useState<TestMode | null>(null);
+  const [mode, setMode] = useState<TestMode | null>(initialMode ?? null);
   const session = useTestSession(test, questions, mode ?? 'learning', onComplete);
   const contentRef = useRef<HTMLDivElement>(null);
   const [discipline, category = ''] = test.title.split(':');

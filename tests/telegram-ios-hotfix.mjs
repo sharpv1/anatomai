@@ -20,7 +20,7 @@ function sdk(mode,fullscreen){return `
 async function openQuestion(mode,fullscreen,target=url){
  const p=await browser.newPage({viewport:{width:390,height:744},reducedMotion:'reduce'});
  await p.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:sdk(mode,fullscreen)}));
- await p.goto(target);await p.locator('.nav-item').nth(1).click();for(let nav=0;nav<3 && await p.locator('.test-mode-picker').count()===0;nav++) await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();return p;
+ await p.goto(target);await p.locator('.nav-item').nth(1).click();for(let nav=0;nav<3 && await p.locator('.test-mode-picker,.topic-page').count()===0;nav++) await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();return p;
 }
 try{
  for(const fullscreen of [false,true])for(const mode of ['native','late-back','late-sdk','show-fails','unknown-visible','browser','browser-sdk']){
@@ -30,8 +30,8 @@ try{
   if(mode==='show-fails'){
    assert.equal(await p.evaluate(()=>backCallbacks.size),0);
    await p.evaluate(()=>dispatchEvent(new PopStateEvent('popstate')));
-   await p.locator('.tests-page').waitFor();
-   for(let nav=0;nav<3 && await p.locator('.test-mode-picker').count()===0;nav++) await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();
+   await p.locator('.topic-page').waitFor();await p.evaluate(()=>dispatchEvent(new PopStateEvent('popstate')));await p.locator('.tests-page').waitFor();
+   for(let nav=0;nav<3 && await p.locator('.test-mode-picker,.topic-page').count()===0;nav++) await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();
    assert.equal(await p.locator('.test-session__close').count(),0);
   }
   if(['late-back','late-sdk','show-fails'].includes(mode)){
@@ -49,8 +49,8 @@ try{
   p.removeAllListeners('dialog');p.on('dialog',dialog=>dialog.accept());
   const before=await p.evaluate(()=>transitions);
   if(native)await p.evaluate(()=>{for(const cb of [...backCallbacks])cb();});else await p.locator('.test-session__close').click();
-  await p.locator('.tests-page').waitFor();assert.equal(await p.evaluate(()=>transitions),before+1);assert.equal(await p.evaluate(()=>backCallbacks.size),0);
-  for(let nav=0;nav<3 && await p.locator('.test-mode-picker').count()===0;nav++) await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();
+  await p.locator('.topic-page').waitFor();if(native)await p.evaluate(()=>{for(const cb of [...backCallbacks])cb();});else await p.locator('.study-back').click();await p.locator('.tests-page').waitFor();assert.equal(await p.evaluate(()=>transitions),before+2);assert.equal(await p.evaluate(()=>backCallbacks.size),0);
+  for(let nav=0;nav<3 && await p.locator('.test-mode-picker,.topic-page').count()===0;nav++) await p.locator('.test-card').first().click();await p.locator('.test-mode-card').first().click();
   assert.equal(await p.evaluate(()=>backCallbacks.size),['browser','browser-sdk'].includes(mode)?0:1);
   // Finish via skips, then leave result with exactly one transition.
   for(let i=0;i<questionsForTest('anatomy').length;i++)await p.locator('.test-session__skip').click();
