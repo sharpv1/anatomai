@@ -1,0 +1,54 @@
+{
+  "archive": "ANATOMAI-approved-banners.zip",
+  "archive_sha256": "38eb9b7f49d2f016ab91b3fdd1e5761ddeb88b38658f6447f3b9fa0aa597d47a",
+  "conversion": {
+    "tool": "Pillow 13.0.0",
+    "format": "WebP",
+    "quality": 92,
+    "method": 6,
+    "resize": false,
+    "crop": false
+  },
+  "images": [
+    {
+      "source": "exams.jpeg",
+      "source_sha256": "ca36fb7e8eca01b9b1ebeac1bb94154e9201059341d728bcdbbc54ce1f915acc",
+      "source_bytes": 204658,
+      "output": "public/promos/exam-preparation.webp",
+      "output_sha256": "95149fb52d0fcee83a7515f03292bd5bbb098df051df65d6c2d3ad7ac5b8e670",
+      "output_bytes": 81772,
+      "width": 1536,
+      "height": 768
+    },
+    {
+      "source": "notes.jpeg",
+      "source_sha256": "c4c8f756f0d1aac0d7e5d8f483735951e8f9b17d967e6b49db4d2080f99eaf3e",
+      "source_bytes": 201547,
+      "output": "public/promos/medical-notes.webp",
+      "output_sha256": "b5f3e2655d44908cfa737f33bb6c14a9927626238c730fbf37b1fe94ced88494",
+      "output_bytes": 81108,
+      "width": 1536,
+      "height": 768
+    },
+    {
+      "source": "mistakes.jpeg",
+      "source_sha256": "1ba6b537dd182dfcb3a0f907730b2c1524a0a4f94cac3d8591eac0d747d1c0a5",
+      "source_bytes": 193005,
+      "output": "public/promos/mistake-review.webp",
+      "output_sha256": "fa0f7cdb7f42c3f0ddc3b6958d7f24774cde8e6e1da2d191c05063ea6b7c92bf",
+      "output_bytes": 73140,
+      "width": 1536,
+      "height": 768
+    },
+    {
+      "source": "premium.jpeg",
+      "source_sha256": "58a5f898b0f3176662d0144b0e8a8bf4be9e69ab056dbf6f1abfd8b4d4a19e88",
+      "source_bytes": 188240,
+      "output": "public/promos/anatomai-premium.webp",
+      "output_sha256": "de2f487c845e4b8c4f75923f3fceaf2104ec9fbc3f4276244a9b7efca463332a",
+      "output_bytes": 71710,
+      "width": 1536,
+      "height": 768
+    }
+  ]
+}

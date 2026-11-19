@@ -1,0 +1,18 @@
+/* Keep the existing scroll-snap container and its two-axis touch behavior. */
+.study-promos .study-promo--image {
+  display: block;
+  aspect-ratio: 2 / 1;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.study-promo--image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

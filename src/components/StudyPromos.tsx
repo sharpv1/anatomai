@@ -1,2 +1,39 @@
-import { ProfileIcon } from '../features/library/ProfileIcon';
-export function StudyPromos({onTests,onNotes,onPremium}:{onTests:()=>void;onNotes:()=>void;onPremium:()=>void}){return <section className="study-promos" aria-label="Учиться с ANATOMAI">{[{title:'Проверь свои знания',text:'Обучение и экзамен',icon:'book' as const,action:onTests},{title:'Повторяй главное',text:'Конспекты по дисциплинам',icon:'repeat' as const,action:onNotes},{title:'ANATOMAI Premium',text:'Узнайте о будущем доступе',icon:'crown' as const,action:onPremium}].map((card,i)=><button key={card.title} className={`study-promo study-promo--${i}`} onClick={card.action}><ProfileIcon name={card.icon}/><strong>{card.title}</strong><span>{card.text}</span></button>)}</section>;}
+import './StudyPromos.css';
+
+type StudyPromosProps = {
+  onTests: () => void;
+  onNotes: () => void;
+  onMistakes: () => void;
+  onPremium: () => void;
+};
+
+export function StudyPromos({ onTests, onNotes, onMistakes, onPremium }: StudyPromosProps) {
+  const banners = [
+    { image: 'exam-preparation.webp', label: 'Подготовка к экзаменам — открыть тесты', action: onTests },
+    { image: 'medical-notes.webp', label: 'Конспекты — открыть раздел', action: onNotes },
+    { image: 'mistake-review.webp', label: 'Повторение ошибок — информация о доступности', action: onMistakes },
+    { image: 'anatomai-premium.webp', label: 'Premium — подробнее о расширенном доступе', action: onPremium },
+  ];
+
+  return (
+    <section className="study-promos" aria-label="Учиться с ANATOMAI">
+      {banners.map(banner => (
+        <button
+          key={banner.image}
+          className="study-promo study-promo--image"
+          aria-label={banner.label}
+          onClick={banner.action}
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}promos/${banner.image}`}
+            alt=""
+            width={1536}
+            height={768}
+            loading="lazy"
+            decoding="async"
+          />
+        </button>
+      ))}
+    </section>
+  );
+}
