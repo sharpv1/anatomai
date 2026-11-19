@@ -3,13 +3,16 @@ import './StudyPromos.css';
 type StudyPromosProps = {
   onTests: () => void;
   onNotes: () => void;
+  onMistakes: () => void;
+  onPremium: () => void;
 };
 
-export function StudyPromos({ onTests, onNotes }: StudyPromosProps) {
+export function StudyPromos({ onTests, onNotes, onMistakes, onPremium }: StudyPromosProps) {
   const banners = [
-    { image: 'promo-tests.png', label: 'Проверь свои знания — открыть тесты', action: onTests },
-    { image: 'promo-notes.png', label: 'Повторяй главное — открыть конспекты', action: onNotes },
-    { image: 'promo-exams.png', label: 'Готовься к экзаменам — открыть каталог тестов', action: onTests },
+    { image: 'exam-preparation.webp', label: 'Подготовка к экзаменам — открыть тесты', action: onTests },
+    { image: 'medical-notes.webp', label: 'Конспекты — открыть раздел', action: onNotes },
+    { image: 'mistake-review.webp', label: 'Повторение ошибок — информация о доступности', action: onMistakes },
+    { image: 'anatomai-premium.webp', label: 'Premium — подробнее о расширенном доступе', action: onPremium },
   ];
 
   return (
@@ -24,8 +27,8 @@ export function StudyPromos({ onTests, onNotes }: StudyPromosProps) {
           <img
             src={`${import.meta.env.BASE_URL}promos/${banner.image}`}
             alt=""
-            width={1774}
-            height={887}
+            width={1536}
+            height={768}
             loading="lazy"
             decoding="async"
           />
