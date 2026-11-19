@@ -5,7 +5,6 @@ import { TestResult } from './features/tests/TestResult';
 import { TestSession } from './features/tests/TestSession';
 import type { TestDefinition, TestResultData, TestMode } from './features/tests/types';
 import { TopicPage } from './pages/TopicPage';
-import { PremiumDialog } from './features/library/PremiumDialog';
 import './styles/study-7.7.css';
 import { HomePage } from './pages/HomePage';
 import { TestsPage } from './pages/TestsPage';
@@ -28,9 +27,6 @@ export default function App() {
   const [route, setRoute] = useState<AppRoute>('home');
   const [testScreen, setTestScreen] = useState<'catalog' | 'topic' | 'session' | 'result'>('catalog');
   const [initialMode,setInitialMode] = useState<TestMode>('learning');
-  const [homePremium,setHomePremium]=useState(false);
-  const openHomePremium=()=>{window.history.pushState({},'','#home-premium');setHomePremium(true);};
-  const closeHomePremium=()=>{if(window.location.hash==='#home-premium')window.history.back();else setHomePremium(false);};
   const [selectedTest, setSelectedTest] = useState<TestDefinition | null>(null);
   const [result, setResult] = useState<TestResultData | null>(null);
   const [statistics, setStatistics] = useState(false);
@@ -54,12 +50,11 @@ export default function App() {
   const inTestFlow = route === 'tests' && testScreen !== 'catalog';
 
   return <AppShell route={route} onRouteChange={goTo} toast={toast} onCloseToast={() => setToast('')} hideNavigation={inTestFlow || statistics}>
-    <div className="page-view" hidden={statistics || route !== 'home'}><HomePage onStartTest={() => goTo('tests')} onNotify={notify} onStatistics={openStatistics} onNotes={() => goTo('notes')} onPremium={openHomePremium} entries={entries} platform={platform} /></div>
+    <div className="page-view" hidden={statistics || route !== 'home'}><HomePage onStartTest={() => goTo('tests')} onNotify={notify} onStatistics={openStatistics} onNotes={() => goTo('notes')} entries={entries} platform={platform} /></div>
     <div className="page-view" hidden={statistics || route !== 'tests' || testScreen !== 'catalog'}><TestsPage onSelectTest={openTest} platform={platform} active={!statistics && route === 'tests' && testScreen === 'catalog'} /></div>
     <div className="page-view" hidden={statistics || route !== 'notes'}><NotesPage /></div>
     <div className="page-view" hidden={statistics || route !== 'profile'}><ProfilePage platform={platform} entries={entries} onReset={() => setEntries([])} /></div>
     {statistics && <StatisticsPage entries={entries} platform={platform} onBack={closeStatistics} />}
-    {homePremium && <PremiumDialog platform={platform} onClose={closeHomePremium}/>}
     {testScreen === 'topic' && selectedTest && <TopicPage test={selectedTest} entries={entries} platform={platform} onBack={backToCatalog} onStart={startTopic}/>}
     {testScreen === 'session' && selectedTest && <TestSession test={selectedTest} platform={platform} onComplete={finishTest} onExit={backToTopic} initialMode={initialMode} />}
     {testScreen === 'result' && result && <TestResult result={result} platform={platform} onBack={backToCatalog} onRetake={retakeTest} />}

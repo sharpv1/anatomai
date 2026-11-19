@@ -7,14 +7,14 @@ import { DailyFocusCard } from '../components/DailyFocusCard';
 import { StatisticsSection } from '../components/StatisticsSection';
 import { SubjectsSection } from '../components/SubjectsSection';
 
-type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => void; onStatistics: () => void; onNotes: () => void; onPremium: () => void; entries:CompletedTest[]; platform:TelegramPlatform };
+type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => void; onStatistics: () => void; onNotes: () => void; entries:CompletedTest[]; platform:TelegramPlatform };
 
-export function HomePage({ onStartTest, onNotify, onStatistics, onNotes, onPremium, entries, platform }: HomePageProps) {
+export function HomePage({ onStartTest, onNotify, onStatistics, onNotes, entries, platform }: HomePageProps) {
   const streak=sessionStreak(entries);
   return <>
     <AppHeader platform={platform} onNotifications={() => onNotify('Новых уведомлений нет')} />
     <DailyFocusCard onStart={onStartTest} metrics={{streakLabel:streak===null?'Серия —':`${streak} дн. подряд`,xpLabel:'XP пока недоступны'}} />
-    <StudyPromos onTests={onStartTest} onNotes={onNotes} onPremium={onPremium} />
+    <StudyPromos onTests={onStartTest} onNotes={onNotes} />
     <StatisticsSection entries={entries} onDetails={onStatistics} />
     <SubjectsSection onAll={() => onNotify('Все предметы')} />
     <div className="section"><h3>Повтори сегодня</h3><button className="see-all" onClick={() => onNotify('Открываем конспекты')}>Все конспекты</button></div>
