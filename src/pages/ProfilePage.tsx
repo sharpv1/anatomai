@@ -10,7 +10,7 @@ const information = {
  settings: {label:'Настройки',status:'Недоступно',text:'Настройки пока не подключены. Изменение и сохранение параметров недоступно.'},
  notifications: {label:'Уведомления',status:'Не подключены',text:'Уведомления пока не подключены. Разрешения не запрашиваются, отправка сообщений не включается.'},
  support: {label:'Помощь и поддержка',status:'Справка',text:'Для практики выберите дисциплину и режим обучения или экзамена. Результаты доступны через «Подробнее» на Главной до перезагрузки приложения. Канал связи с поддержкой пока не настроен.'},
- about: {label:'О приложении',status:'UI 7.5',text:'ANATOMAI — медицинское учебное Telegram Mini App. Версия интерфейса 7.5. Платежи и серверная синхронизация результатов не подключены.'},
+ about: {label:'О приложении',status:'UI 7.7',text:'ANATOMAI — медицинское учебное Telegram Mini App. Версия интерфейса 7.7. Платежи и серверная синхронизация результатов не подключены.'},
 } as const;
 export function ProfilePage({platform,entries,onReset}:{platform:TelegramPlatform;entries:CompletedTest[];onReset:()=>void}){
  const isTelegram=useSyncExternalStore(platform.subscribeBackButton,platform.getTelegramContextSnapshot,()=>false);

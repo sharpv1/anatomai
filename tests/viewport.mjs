@@ -89,7 +89,7 @@ try {
       assert.ok(await page.locator('.shell__content').evaluate(el => el.scrollTop > 0));
       await page.locator('[data-fixture]').evaluateAll(els => els.forEach(el=>el.remove()));
       await page.locator('.shell__content').evaluate(el => { el.scrollTop = 0; });
-      for(let nav=0;nav<3 && await page.locator('.test-mode-picker').count()===0;nav++) await page.locator('.test-card').first().click();
+      for(let nav=0;nav<3 && await page.locator('.test-mode-picker,.topic-page').count()===0;nav++) await page.locator('.test-card').first().click();
       await page.locator('.test-mode-card').first().click();
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), false);
       assert.equal(await page.locator('.test-session__close').count(),mode === 'browser' ? 1 : 0);
@@ -134,6 +134,8 @@ try {
       page.once('dialog', dialog => dialog.accept());
       if(mode !== 'browser') await page.evaluate(() => { for(const cb of [...testBackCallbacks]) cb(); });
       else await page.locator('.test-session__close').click();
+      await page.locator('.topic-page').waitFor();
+      if(mode !== 'browser') await page.evaluate(()=>{for(const cb of [...testBackCallbacks])cb();});else await page.locator('.study-back').click();
       await page.locator('.tests-head').waitFor();
       assert.equal(await page.evaluate(() => testBackCallbacks.size), 0);
       await page.locator('.nav-item').first().click();
@@ -163,7 +165,7 @@ try {
   const page=await browser.newPage({viewport:{width:390,height:667},reducedMotion:'reduce'});
   await page.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:''}));
   await page.goto('http://127.0.0.1:4179/');
-  await page.locator('.nav-item').nth(1).click(); for(let nav=0;nav<3 && await page.locator('.test-mode-picker').count()===0;nav++) await page.locator('.test-card').first().click(); await page.locator('.test-mode-card').first().click();
+  await page.locator('.nav-item').nth(1).click(); for(let nav=0;nav<3 && await page.locator('.test-mode-picker,.topic-page').count()===0;nav++) await page.locator('.test-card').first().click(); await page.locator('.test-mode-card').first().click();
   assert.equal(await page.locator('.test-session__action').count(),0);
   for(let i=0;i<questions.length;i++) {
     assert.equal(await page.locator('.test-session__track').getAttribute('aria-valuenow'),String(i));
