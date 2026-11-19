@@ -20,11 +20,12 @@ export function StudyPromos({ onTests, onNotes, onMistakes, onPremium }: StudyPr
       {banners.map(banner => (
         <button
           key={banner.image}
-          className="study-promo study-promo--image"
+          className={`study-promo study-promo--image${banner.image === 'anatomai-premium.webp' ? ' study-promo--premium' : ''}`}
           aria-label={banner.label}
           onClick={banner.action}
         >
           <img
+            className="study-promo__artwork"
             src={`${import.meta.env.BASE_URL}promos/${banner.image}`}
             alt=""
             width={1536}
@@ -32,6 +33,16 @@ export function StudyPromos({ onTests, onNotes, onMistakes, onPremium }: StudyPr
             loading="lazy"
             decoding="async"
           />
+          {banner.image === 'anatomai-premium.webp' && <img
+            className="study-promo__headroom"
+            src={`${import.meta.env.BASE_URL}promos/${banner.image}`}
+            alt=""
+            aria-hidden="true"
+            width={1536}
+            height={768}
+            loading="lazy"
+            decoding="async"
+          />}
         </button>
       ))}
     </section>

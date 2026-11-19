@@ -3,9 +3,9 @@ import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 // Serve the previous PR #21 dist separately to compare protected Home regions.
-const url = process.env.AFTER_URL || 'http://127.0.0.1:4496';
-const beforeUrl = process.env.BEFORE_URL || 'http://127.0.0.1:4497';
-const screenshots = 'docs/screenshots/ui-7.9-compact';
+const url = process.env.AFTER_URL || 'http://127.0.0.1:4596';
+const beforeUrl = process.env.BEFORE_URL || 'http://127.0.0.1:4597';
+const screenshots = 'docs/screenshots/ui-7.9-compact2';
 mkdirSync(screenshots, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || '/usr/bin/chromium',
@@ -63,7 +63,7 @@ try {
       await carousel.scrollIntoViewIfNeeded();
       const cards = carousel.locator('button');
       assert.equal(await cards.count(), 4);
-      assert.deepEqual(await carousel.locator('img').evaluateAll(images => images.map(el => el.src.split('/').pop())),
+      assert.deepEqual(await carousel.locator('.study-promo__artwork').evaluateAll(images => images.map(el => el.src.split('/').pop())),
         ['exam-preparation.webp', 'medical-notes.webp', 'mistake-review.webp', 'anatomai-premium.webp']);
       assert.equal(await carousel.locator('strong,span,svg').count(), 0);
       const before = await carousel.boundingBox();
@@ -74,7 +74,7 @@ try {
       await carousel.locator('img').first().evaluate(image => image.decode());
       const after = await carousel.boundingBox();
       assert.equal(before.height, after.height, 'Images must reserve height before decoding');
-      assert.ok(after.height >= 140 && after.height <= 150);
+      assert.ok(after.height >= 105 && after.height <= 115);
       assert.equal(nextSectionBefore.y, (await page.locator('.stats').boundingBox()).y);
 
       const geometry = await carousel.evaluate(el => {
@@ -92,7 +92,7 @@ try {
       assert.ok(geometry.peek > 8, 'Next banner must be partially visible');
 
       for (let i = 0; i < 4; i++) {
-        const img = cards.nth(i).locator('img');
+        const img = cards.nth(i).locator('.study-promo__artwork');
         await cards.nth(i).scrollIntoViewIfNeeded();
         await img.evaluate(image => image.decode());
         assert.equal(await img.getAttribute('loading'), 'lazy');
@@ -122,11 +122,24 @@ try {
         });
         assert.ok(visibleSource.left <= protectedArea.left && visibleSource.top <= protectedArea.top && visibleSource.right >= protectedArea.right && visibleSource.bottom >= protectedArea.bottom, `Artwork clipped: ${i} ${JSON.stringify(visibleSource)}`);
         const frame = await cards.nth(i).evaluate(el => ({height:el.getBoundingClientRect().height,overflow:getComputedStyle(el).overflow,radius:getComputedStyle(el).borderRadius,padding:getComputedStyle(el).padding,border:getComputedStyle(el).borderWidth}));
-        assert.ok(frame.height >= 140 && frame.height <= 150);
+        assert.ok(frame.height >= 105 && frame.height <= 115);
         assert.equal(frame.overflow, 'hidden');
-        assert.equal(frame.radius, '20px');
+        assert.equal(frame.radius, '16px');
         assert.equal(frame.padding, '0px');
         assert.equal(frame.border, '0px');
+        const cleanFrame = await cards.nth(i).evaluate(el => {
+          const card=getComputedStyle(el), image=getComputedStyle(el.querySelector('img')), row=getComputedStyle(el.parentElement);
+          return {fraction:el.getBoundingClientRect().width/el.parentElement.getBoundingClientRect().width,gap:parseFloat(row.gap),shadows:[card.boxShadow,image.boxShadow,row.boxShadow],borders:[card.borderWidth,image.borderWidth,row.borderWidth],pseudo:[getComputedStyle(el,'::before').content,getComputedStyle(el,'::after').content,getComputedStyle(el.parentElement,'::before').content,getComputedStyle(el.parentElement,'::after').content]};
+        });
+        assert.ok(cleanFrame.fraction >= .779 && cleanFrame.fraction <= .821);
+        assert.ok(cleanFrame.gap >= 8 && cleanFrame.gap <= 10);
+        assert.deepEqual(cleanFrame.shadows,['none','none','none']);
+        assert.deepEqual(cleanFrame.borders,['0px','0px','0px']);
+        assert.ok(cleanFrame.pseudo.every(content=>content==='none'));
+        if (i===3) {
+          assert.equal(await cards.nth(i).locator('.study-promo__headroom').getAttribute('aria-hidden'),'true');
+          assert.equal(await cards.nth(i).locator('.study-promo__headroom').evaluate(el=>getComputedStyle(el).mixBlendMode),'darken');
+        }
         assert.ok((await cards.nth(i).getAttribute('aria-label')).length > 10);
         if (mode === 'fullscreen') {
           await carousel.evaluate((el, index) => { el.scrollLeft = el.children[index].offsetLeft - el.offsetLeft; }, i);
@@ -189,7 +202,7 @@ try {
       await page.getByRole('dialog').waitFor({ state: 'detached' });
       assert.deepEqual(errors, []);
       await page.close();
-      console.log(`PASS ${width} ${mode}: 4 approved images, 140–150px reserved height, cover crop, peek, touch, routes/dialogs, Back cleanup, overflow`);
+      console.log(`PASS ${width} ${mode}: 4 approved banners, 105–115px height, 78–82% width, no decorative frame, safe cover crop, touch, routes/dialogs, Back cleanup, overflow`);
     }
   }
 
