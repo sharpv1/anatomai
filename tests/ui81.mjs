@@ -3,7 +3,7 @@ import {mkdirSync} from 'node:fs';
 import {chromium} from 'playwright';
 const url=process.env.AFTER_URL||'http://127.0.0.1:4796';
 const fixtureUrl=process.env.FIXTURE_URL||'http://127.0.0.1:4798/tests/fixtures/question-review.html';
-const dir='docs/screenshots/ui-8.1';mkdirSync(dir,{recursive:true});
+const dir=process.env.SCREENSHOT_DIR||'docs/screenshots/ui-8.1';mkdirSync(dir,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_EXECUTABLE_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
 async function open(width,mode){
  const page=await browser.newPage({viewport:{width,height:812},reducedMotion:'reduce'});
@@ -16,9 +16,8 @@ try{
  for(const width of [375,390,430])for(const mode of ['browser','expanded','fullscreen']){
   const {page,errors}=await open(width,mode);
   await page.locator('.nav-item').nth(1).click();await page.locator('.test-card').first().click();
-  await page.getByRole('button',{name:'Показать все (5)'}).click();
-  await page.locator('.topic-page').evaluate(e=>{e.scrollTop=80;});
-  await page.getByRole('button',{name:/Разбор вопросов/}).click();
+  assert.equal(await page.locator('.topic-questions,.topic-show-all').count(),0);
+  await page.getByRole('button',{name:/Ответы и разбор/}).click();
   await page.locator('.question-review').waitFor();
   assert.equal(await page.locator('.question-review__back').count(),mode==='browser'?1:0);
   assert.equal(await page.locator('.question-review__card').count(),5);
@@ -40,8 +39,8 @@ try{
   await page.locator('.question-review__scroll').evaluate(e=>{e.scrollTop=e.scrollHeight;});
   const last=await page.locator('.question-review__card').last().boundingBox();
   assert.ok(last.y+last.height<=812-(mode==='browser'?8:34));
-  await back(page,mode);assert.equal(await page.locator('.topic-questions>li').count(),5);
-  assert.ok(await page.locator('.topic-page').evaluate(e=>e.scrollTop>0));
+  await back(page,mode);assert.equal(await page.locator('.topic-questions').count(),0);
+  assert.equal(await page.locator('.topic-modes button').count(),2);
   await page.goForward();await page.locator('.question-review').waitFor();
   await page.goBack();await page.locator('.topic-page').waitFor({state:'visible'});
   await page.getByRole('button',{name:'Экзамен',exact:true}).click();

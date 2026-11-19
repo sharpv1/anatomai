@@ -237,9 +237,16 @@ try {
   assert.equal(await motion.locator('.page-view:not([hidden])').evaluate(el=>el.getAnimations().length),0,'Scrolling must not replay page enter');
   const tabsBefore=await motion.locator('.nav-item').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{x:r.x,width:r.width,height:r.height};}));
   for(const tab of tabsBefore)assert.ok(tab.width>=44 && tab.height>=44);
-  await motion.locator('.nav-item').nth(1).evaluate(el=>el.click());
-  await motion.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  const moving=await motion.locator('.nav-indicator').evaluate(el=>({x:new DOMMatrix(getComputedStyle(el).transform).m41,width:el.getBoundingClientRect().width,animations:el.getAnimations().filter(a=>a.playState==='running').length}));
+  const moving=await motion.locator('.nav-indicator').evaluate(async el=>{
+    document.querySelectorAll('.nav-item')[1].click();
+    await new Promise(requestAnimationFrame);
+    // Sample the actual transition deterministically, rather than racing the
+    // browser/Node round-trip against a short 180ms animation on a busy runner.
+    const animation=el.getAnimations()[0];
+    if(animation){animation.pause();animation.currentTime=Number(animation.effect.getTiming().duration)/2;}
+    const result={x:new DOMMatrix(getComputedStyle(el).transform).m41,width:el.getBoundingClientRect().width,animations:animation?1:0};
+    animation?.play();return result;
+  });
   assert.ok(moving.x>0 && moving.x<moving.width+4,'Indicator must move continuously via transform');
   assert.ok(moving.animations>0);
   await settle();

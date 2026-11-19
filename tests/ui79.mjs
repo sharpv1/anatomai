@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 // Serve the previous PR #21 dist separately to compare protected Home regions.
 const url = process.env.AFTER_URL || 'http://127.0.0.1:4696';
 const beforeUrl = process.env.BEFORE_URL || 'http://127.0.0.1:4697';
-const screenshots = 'docs/screenshots/home-layout-8.0';
+const screenshots = process.env.SCREENSHOT_DIR || 'docs/screenshots/home-layout-8.0';
 mkdirSync(screenshots, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || '/usr/bin/chromium',
@@ -65,12 +65,12 @@ try {
         return [...el.children].flatMap(child=>blocks.filter(name=>child.classList.contains(name)));
       }), ['topbar','hero','subjects','review','stats','study-promos','tip']);
       assert.equal(await home.locator('.hero + .section h3').innerText(),'Предметы');
-      assert.equal(await home.locator('.subjects + .section h3').innerText(),'Повтори сегодня');
+      assert.equal(await home.locator('.subjects + .section h3').innerText(),'Вопросы дня');
       assert.equal(await home.locator('.review + .section h3').innerText(),'Твоя статистика');
       assert.equal(await home.locator('.activity,.chart,.days').count(),0);
-      assert.equal(await home.locator('.stat').count(),2);
-      assert.equal(await home.locator('.stat b').first().innerText(),'—');
-      assert.equal(await home.locator('.stat b').nth(1).innerText(),'0 сек');
+      assert.equal(await home.locator('.stats--compact>div').count(),3);
+      assert.equal(await home.locator('.stats--compact dd').first().innerText(),'0');
+      assert.equal(await home.locator('.stats--compact dd').nth(1).innerText(),'—');
       assert.equal(await home.evaluate(el=>el.lastElementChild.classList.contains('tip')),true);
       const carousel = page.locator('.study-promos');
       await carousel.scrollIntoViewIfNeeded();
@@ -235,7 +235,7 @@ try {
   const previous = (await open(beforeUrl, 390, 812, 'browser')).page;
   const current = (await open(url, 390, 812, 'browser')).page;
   for (const p of [previous, current]) await p.locator('.shell__content').evaluate(el => { el.style.visibility = 'hidden'; });
-  for (const selector of ['.topbar', '.hero', '.subjects', '.review', '.stats', '.bottom-nav']) {
+  for (const selector of ['.topbar', '.hero', '.subjects', '.bottom-nav']) {
     // The new image aspect ratio moves later sections. Compare their own rendering
     // at identical integer coordinates, without a different glass-nav backdrop.
     for (const p of [previous, current]) {
@@ -264,7 +264,7 @@ try {
   await page.getByRole('button', { name: 'Подготовка к экзаменам — открыть тесты' }).click();
   await page.locator('.tests-page').waitFor({ state: 'visible' });
   await page.locator('.nav-item').nth(3).click();
-  await page.locator('.premium-card button').click();
+  await page.locator('.profile-premium-row').click();
   await page.getByRole('dialog').waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Понятно' }).click();
   await page.getByRole('dialog').waitFor({ state: 'detached' });

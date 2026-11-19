@@ -1,3 +1,5 @@
+import { DailyQuestions } from '../components/DailyQuestions';
+import type {TestDefinition} from '../features/tests/types';
 import { StudyPromos } from '../components/StudyPromos';
 import { useState } from 'react';
 import { PremiumDialog } from '../features/library/PremiumDialog';
@@ -9,9 +11,9 @@ import { DailyFocusCard } from '../components/DailyFocusCard';
 import { StatisticsSection } from '../components/StatisticsSection';
 import { SubjectsSection } from '../components/SubjectsSection';
 
-type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => void; onStatistics: () => void; onNotes: () => void; entries:CompletedTest[]; platform:TelegramPlatform };
+type HomePageProps = { onStartTest: () => void; onNotify: (message: string) => void; onStatistics: () => void; onNotes: () => void; onNoteDiscipline:(id:string)=>void; onDailyReview:(test:TestDefinition)=>void; entries:CompletedTest[]; platform:TelegramPlatform };
 
-export function HomePage({ onStartTest, onNotify, onStatistics, onNotes, entries, platform }: HomePageProps) {
+export function HomePage({ onStartTest, onNotify, onStatistics, onNotes, onNoteDiscipline, onDailyReview, entries, platform }: HomePageProps) {
   const [promoPanel, setPromoPanel] = useState<'premium' | 'mistakes' | null>(null);
   const openPromoPanel = (panel: 'premium' | 'mistakes') => {
     window.history.pushState({ homePromo: panel }, '', `#home-${panel}`);
@@ -25,9 +27,8 @@ export function HomePage({ onStartTest, onNotify, onStatistics, onNotes, entries
   return <>
     <AppHeader platform={platform} onNotifications={() => onNotify('Новых уведомлений нет')} />
     <DailyFocusCard onStart={onStartTest} metrics={{streakLabel:streak===null?'Серия —':`${streak} дн. подряд`,xpLabel:'XP пока недоступны'}} />
-    <SubjectsSection onAll={() => onNotify('Все предметы')} />
-    <div className="section"><h3>Повтори сегодня</h3><button className="see-all" onClick={() => onNotify('Открываем конспекты')}>Все конспекты</button></div>
-    <section className="review"><div className="review-art">🦴</div><div className="review-copy"><b>Кости верхней конечности</b><p>12 карточек · 4 минуты на повторение</p></div><button className="review-arrow" onClick={() => onNotify('Повторение началось')}>→</button></section>
+    <SubjectsSection onAll={onNotes} onSelect={onNoteDiscipline} />
+    <DailyQuestions onOpen={onDailyReview} />
     <StatisticsSection entries={entries} onDetails={onStatistics} showActivity={false} />
     <StudyPromos onTests={onStartTest} onNotes={onNotes} onMistakes={() => openPromoPanel('mistakes')} onPremium={() => openPromoPanel('premium')} />
     <section className="tip"><div className="tip-icon">💡</div><div><b>Совет на сегодня</b><p>Повторяй материал короткими подходами — так знания закрепляются лучше.</p></div></section>

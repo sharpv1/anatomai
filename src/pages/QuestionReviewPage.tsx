@@ -9,19 +9,21 @@ type Props = {
   questions: readonly ReviewQuestion[];
   platform: TelegramPlatform;
   onBack: () => void;
+  listenPopstate?: boolean;
+  backLabel?: string;
 };
 
-export function QuestionReviewPage({ title, questions, platform, onBack }: Props) {
-  const { isTelegramContext, requestBack } = useTelegramBackButton(platform, onBack);
+export function QuestionReviewPage({ title, questions, platform, onBack, listenPopstate=true, backLabel="К теме" }: Props) {
+  const { isTelegramContext, requestBack } = useTelegramBackButton(platform, onBack, true, listenPopstate);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(REVIEW_BATCH_SIZE);
   const listRef = useRef<HTMLDivElement>(null);
   const matches = useMemo(() => findReviewQuestions(questions, query), [questions, query]);
 
-  return <section className="question-review" aria-label="Разбор вопросов">
+  return <section className="question-review" aria-label="Ответы и разбор">
     <header className="question-review__header">
-      {!isTelegramContext && <button className="question-review__back" onClick={requestBack}>‹ К теме</button>}
-      <h1>Разбор вопросов</h1>
+      {!isTelegramContext && <button className="question-review__back" onClick={requestBack}>‹ {backLabel}</button>}
+      <h1>Ответы и разбор</h1>
       <p className="question-review__topic">{title}</p>
       <label className="question-review__search">
         <span>Поиск по вопросам</span>
