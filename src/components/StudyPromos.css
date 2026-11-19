@@ -1,8 +1,11 @@
 /* Keep the existing scroll-snap container and its two-axis touch behavior. */
 .study-promos .study-promo--image {
   display: block;
-  aspect-ratio: 2 / 1;
+  position: relative;
+  height: clamp(140px, 36vw, 150px);
+  aspect-ratio: auto;
   min-height: 0;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 20px;
@@ -12,7 +15,23 @@
 
 .study-promo--image img {
   display: block;
+  position: absolute;
+  /* The approved artwork includes pale outer gutters. Crop them at display
+     time to keep the original WebP bytes and avoid another lossy encode. */
+  left: -2%;
+  top: -10%;
+  width: 104%;
+  height: 120%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 45% 50%;
+}
+
+.study-promo--image img[src$="anatomai-premium.webp"] {
+  /* The crown rises above the coloured surface: preserve that extra headroom. */
+  top: -8%;
+  left: 0;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: 116%;
+  object-position: 50% 0%;
 }

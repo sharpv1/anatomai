@@ -3,9 +3,9 @@ import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 // Serve the previous PR #21 dist separately to compare protected Home regions.
-const url = process.env.AFTER_URL || 'http://127.0.0.1:4396';
-const beforeUrl = process.env.BEFORE_URL || 'http://127.0.0.1:4397';
-const screenshots = 'docs/screenshots/ui-7.9';
+const url = process.env.AFTER_URL || 'http://127.0.0.1:4496';
+const beforeUrl = process.env.BEFORE_URL || 'http://127.0.0.1:4497';
+const screenshots = 'docs/screenshots/ui-7.9-compact';
 mkdirSync(screenshots, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || '/usr/bin/chromium',
@@ -74,6 +74,7 @@ try {
       await carousel.locator('img').first().evaluate(image => image.decode());
       const after = await carousel.boundingBox();
       assert.equal(before.height, after.height, 'Images must reserve height before decoding');
+      assert.ok(after.height >= 140 && after.height <= 150);
       assert.equal(nextSectionBefore.y, (await page.locator('.stats').boundingBox()).y);
 
       const geometry = await carousel.evaluate(el => {
@@ -102,15 +103,37 @@ try {
         }));
         assert.equal(dimensions.naturalWidth, 1536);
         assert.equal(dimensions.naturalHeight, 768);
-        assert.ok(Math.abs(dimensions.width / dimensions.height - 2) < 0.02);
-        assert.equal(dimensions.fit, 'contain');
+        assert.equal(dimensions.fit, 'cover');
+        // Bounds in the unchanged 1536x768 artwork: all headings plus the
+        // main illustration, including the pencil and the raised crown.
+        const protectedArea = [
+          {left:95, top:130, right:1460, bottom:665},
+          {left:95, top:130, right:1430, bottom:665},
+          {left:95, top:130, right:1470, bottom:665},
+          {left:100, top:55, right:1430, bottom:650},
+        ][i];
+        const visibleSource = await img.evaluate(el => {
+          const image=el.getBoundingClientRect(), card=el.parentElement.getBoundingClientRect();
+          const [px,py]=getComputedStyle(el).objectPosition.split(' ').map(v=>parseFloat(v)/100);
+          const scale=Math.max(image.width/el.naturalWidth,image.height/el.naturalHeight);
+          const left=image.left+(image.width-el.naturalWidth*scale)*px;
+          const top=image.top+(image.height-el.naturalHeight*scale)*py;
+          return {left:(card.left-left)/scale,top:(card.top-top)/scale,right:(card.right-left)/scale,bottom:(card.bottom-top)/scale};
+        });
+        assert.ok(visibleSource.left <= protectedArea.left && visibleSource.top <= protectedArea.top && visibleSource.right >= protectedArea.right && visibleSource.bottom >= protectedArea.bottom, `Artwork clipped: ${i} ${JSON.stringify(visibleSource)}`);
+        const frame = await cards.nth(i).evaluate(el => ({height:el.getBoundingClientRect().height,overflow:getComputedStyle(el).overflow,radius:getComputedStyle(el).borderRadius,padding:getComputedStyle(el).padding,border:getComputedStyle(el).borderWidth}));
+        assert.ok(frame.height >= 140 && frame.height <= 150);
+        assert.equal(frame.overflow, 'hidden');
+        assert.equal(frame.radius, '20px');
+        assert.equal(frame.padding, '0px');
+        assert.equal(frame.border, '0px');
         assert.ok((await cards.nth(i).getAttribute('aria-label')).length > 10);
         if (mode === 'fullscreen') {
           await carousel.evaluate((el, index) => { el.scrollLeft = el.children[index].offsetLeft - el.offsetLeft; }, i);
           await page.waitForTimeout(150);
-          const imageBounds = await img.boundingBox();
+          const cardBounds = await cards.nth(i).boundingBox();
           const carouselBounds = await carousel.boundingBox();
-          assert.ok(imageBounds.x >= carouselBounds.x - 1 && imageBounds.x + imageBounds.width <= carouselBounds.x + carouselBounds.width + 1);
+          assert.ok(cardBounds.x >= carouselBounds.x - 1 && cardBounds.x + cardBounds.width <= carouselBounds.x + carouselBounds.width + 1);
           await carousel.screenshot({ path: `${screenshots}/carousel-${width}-${i + 1}.png` });
         }
       }
@@ -166,7 +189,7 @@ try {
       await page.getByRole('dialog').waitFor({ state: 'detached' });
       assert.deepEqual(errors, []);
       await page.close();
-      console.log(`PASS ${width} ${mode}: 4 approved images, reserved height, no crop/distortion, peek, touch, routes/dialogs, Back cleanup, overflow`);
+      console.log(`PASS ${width} ${mode}: 4 approved images, 140–150px reserved height, cover crop, peek, touch, routes/dialogs, Back cleanup, overflow`);
     }
   }
 
