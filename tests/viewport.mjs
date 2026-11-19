@@ -36,8 +36,8 @@ try {
       assert.equal(await page.locator('.fullscreen-toggle').isVisible(), mode === 'telegram');
       assert.ok(await page.locator('.shell').evaluate(el => el.scrollWidth <= el.clientWidth));
       assert.equal(await page.locator('.hero svg,.icon-btn .dot').count(),0);
-      assert.equal(await page.locator('.hero .streak').innerText(),'🔥 5 дней подряд');
-      assert.equal(await page.locator('.hero .micro-badge').innerText(),'✦ +120 XP за сегодня');
+      assert.equal(await page.locator('.hero .streak').innerText(),'Серия —');
+      assert.equal(await page.locator('.hero .micro-badge').innerText(),'XP пока недоступны');
       assert.ok(await page.locator('.icon-btn').evaluate(el=>el.getBoundingClientRect().width>=44 && el.getBoundingClientRect().height>=44));
       assert.ok(await page.locator('meta[name="viewport"]').getAttribute('content').then(value=>value.includes('user-scalable=no')));
       const gestures=await page.locator('.shell').evaluate(el=>{
@@ -166,7 +166,8 @@ try {
   await page.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:''}));
   await page.goto('http://127.0.0.1:4179/');
   await page.locator('.nav-item').nth(1).click(); for(let nav=0;nav<3 && await page.locator('.test-mode-picker,.topic-page').count()===0;nav++) await page.locator('.test-card').first().click(); await page.locator('.test-mode-card').first().click();
-  assert.equal(await page.locator('.test-session__action').count(),0);
+  assert.equal(await page.locator('.test-session__action').count(),1);
+  assert.equal(await page.locator('.test-session__action').isDisabled(),true);
   for(let i=0;i<questions.length;i++) {
     assert.equal(await page.locator('.test-session__track').getAttribute('aria-valuenow'),String(i));
     if(i===2) {await page.locator('.test-session__skip').click();continue;}

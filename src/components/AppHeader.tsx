@@ -1,13 +1,17 @@
-type AppHeaderProps = { onNotifications: () => void };
+import type {TelegramPlatform} from '../platform/telegram/TelegramPlatformAdapter';
+import {useTelegramIdentity} from '../features/library/useTelegramIdentity';
+type AppHeaderProps = { onNotifications: () => void; platform: TelegramPlatform };
 
-export function AppHeader({ onNotifications }: AppHeaderProps) {
+export function AppHeader({ onNotifications, platform }: AppHeaderProps) {
+  const {name}=useTelegramIdentity(platform);
+  const initials=name?.split(/\s+/).slice(0,2).map(s=>Array.from(s)[0]).join('')||'А';
   return (
     <header className="topbar">
       <div className="greeting">
-        <div className="avatar">АИ</div>
+        <div className="avatar" aria-hidden="true">{initials}</div>
         <div>
-          <p className="eyebrow">Понедельник, 16 ноября</p>
-          <h1>Привет, Айдана 👋</h1>
+          <p className="eyebrow">{new Date().toLocaleDateString('ru',{weekday:'long',day:'numeric',month:'long'})}</p>
+          <h1>{name?`Привет, ${name.split(' ')[0]} 👋`:'Добро пожаловать 👋'}</h1>
         </div>
       </div>
       <button className="icon-btn" aria-label="Уведомления" onClick={onNotifications}>

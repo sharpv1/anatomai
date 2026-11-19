@@ -66,8 +66,8 @@ export function TestSession({ test, platform, onComplete, onExit, initialMode }:
       </div>
     </div>
     <footer className="test-session__footer"><div className="test-session__footer-actions">
-      {!checked && <button className="test-session__skip" onClick={session.skip}>Пропустить вопрос</button>}
-      {(!learning || checked) && <button className="test-session__action" disabled={session.selectedAnswer === null} onClick={submit}>{actionLabel}</button>}
+      <button className="test-session__skip" disabled={checked} onClick={session.skip}>Пропустить</button>
+      <button className="test-session__action" disabled={session.selectedAnswer === null || (learning && !checked)} onClick={submit}>{actionLabel}</button>
     </div>{!learning && <small className="test-session__footer-note">Ответы проверим после завершения экзамена</small>}</footer>
   </section>;
 }
