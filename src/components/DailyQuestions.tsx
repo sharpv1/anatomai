@@ -22,11 +22,10 @@ export function DailyQuestions({ onOpen, topics=catalog }: { onOpen: (test: Test
   const selected = useMemo(() => selectDailyTopic(topics, day), [day,topics]);
   const [discipline, ...theme] = selected?.test.title.split(':') ?? [];
   return <>
-    <div className="section"><h3>Вопросы дня</h3></div>
-    {selected ? <button className="review daily-questions" onClick={() => onOpen(selected.test)}>
+    {selected ? <button className="review daily-questions" aria-label={`Вопросы дня: ${discipline}. ${theme.join(':').trim() || discipline}. Вопросов: ${selected.questionCount}. Ответы и разбор`} onClick={() => onOpen(selected.test)}>
       <span className="review-art" aria-hidden="true">{selected.test.icon}</span>
-      <span className="review-copy"><b>{discipline}</b><span className="daily-questions__topic">{theme.join(':').trim() || discipline}</span><small>Вопросов: {selected.questionCount} · Ответы и разбор</small></span>
+      <span className="review-copy"><b>{discipline}</b><span className="daily-questions__topic" title={theme.join(':').trim() || discipline}>{theme.join(':').trim() || discipline}</span><small>Вопросов: {selected.questionCount}</small></span>
       <span className="review-arrow" aria-hidden="true">→</span>
-    </button> : <section className="review daily-questions" role="status"><p>Пока нет доступных вопросов.</p></section>}
+    </button> : <section className="review daily-questions" aria-label="Вопросы дня" role="status"><p>Пока нет доступных вопросов.</p></section>}
   </>;
 }

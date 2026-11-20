@@ -3,7 +3,8 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {chromium} from 'playwright';
 const after=process.env.AFTER_URL||'http://127.0.0.1:4896';
 const before=process.env.BEFORE_URL||'http://127.0.0.1:4897';
-const dir='docs/screenshots/ui-8.2';mkdirSync(dir,{recursive:true});
+const fixtureUrl=process.env.FIXTURE_URL||'http://127.0.0.1:4898/tests/fixtures/question-review.html';
+const dir=process.env.SCREENSHOT_DIR||'docs/screenshots/ui-8.2';mkdirSync(dir,{recursive:true});
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
 async function open(width,mode,url=after){
  const p=await browser.newPage({viewport:{width,height:812},timezoneId:'Asia/Bishkek',reducedMotion:'reduce'});
@@ -79,7 +80,7 @@ try{
   await shot(p,width,mode,'topic');
   await p.getByRole('button',{name:/Ответы и разбор/}).click();await p.locator('.question-review').waitFor();
   await p.getByRole('searchbox').fill('рёбер');assert.equal(await p.locator('.question-review__card').count(),1);
-  await p.getByRole('searchbox').fill('');await p.locator('.question-review__explanation summary').first().click();
+  await p.getByRole('searchbox').fill('');assert.equal(await p.locator('.question-review__explanation').count(),0);
   await shot(p,width,mode,'topic-answers');
   await back(p,mode,'.question-review__back');await p.locator('.topic-page').waitFor({state:'visible'});
   await p.getByRole('button',{name:'Экзамен',exact:true}).click();await p.locator('.test-choice').first().click();
@@ -109,7 +110,7 @@ try{
  await p.locator('.daily-questions').click();await p.locator('.question-review').waitFor();await back(p,'browser','.question-review__back');await home(p);
  assert.deepEqual(await p.locator('.stats--compact dd').allTextContents(),values);await p.close();
  console.log('PASS statistics use an actual completion; reference browsing does not alter history/results');
- const fixture=await browser.newPage();await fixture.goto('http://127.0.0.1:4898/tests/fixtures/question-review.html?case=daily-empty');
+ const fixture=await browser.newPage();await fixture.goto(`${fixtureUrl}?case=daily-empty`);
  await fixture.locator('.daily-questions').waitFor();assert.equal(await fixture.locator('.daily-questions button,button.daily-questions').count(),0);assert.ok((await fixture.locator('.daily-questions').innerText()).includes('Пока нет доступных вопросов'));await fixture.close();
  console.log('PASS empty daily bank has no unavailable action');
 }finally{await browser.close();}

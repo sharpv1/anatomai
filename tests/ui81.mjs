@@ -25,7 +25,7 @@ try{
   assert.equal(await page.locator('.question-review__answer--correct').count(),5);
   assert.equal(await page.locator('.question-review .test-session__action,.question-review .wrong,.topic-favorite').count(),0);
   assert.equal(await page.getByRole('button',{name:/Проверить|Ответить|Следующий вопрос/}).count(),0);
-  assert.equal(await page.locator('.question-review__explanation[open]').count(),0);
+  assert.equal(await page.locator('.question-review__explanation, .question-review details').count(),0);
   assert.equal(await page.locator('.question-review__scroll').evaluate(e=>getComputedStyle(e).overscrollBehaviorY),'none');
   assert.ok(await page.locator('.question-review').evaluate(e=>e.scrollWidth<=e.clientWidth));
   const input=page.getByRole('searchbox');
@@ -33,8 +33,7 @@ try{
   assert.equal(await page.locator('.question-review__card h2>span').innerText(),'2.');
   await input.fill('Несуществующий запрос');assert.equal(await page.locator('.question-review__card').count(),0);
   assert.ok(await page.locator('.question-review__empty').isVisible());
-  await input.fill('');await page.locator('.question-review__explanation summary').first().click();
-  assert.ok(await page.locator('.question-review__explanation p').first().isVisible());
+  await input.fill('');assert.equal(await page.locator('.question-review__explanation').count(),0);
   if(mode==='fullscreen')await page.screenshot({path:`${dir}/review-${width}.png`});
   await page.locator('.question-review__scroll').evaluate(e=>{e.scrollTop=e.scrollHeight;});
   const last=await page.locator('.question-review__card').last().boundingBox();
@@ -53,7 +52,7 @@ try{
   await page.getByRole('button',{name:'Обучение',exact:true}).click();await page.locator('.test-choice').first().click();
   assert.equal(await page.locator('.test-choice.correct').count(),1);
   assert.deepEqual(errors,[]);await page.close();
-  console.log(`PASS ${width} ${mode}: reference answers/search/explanation, topic state, Back/forward/callbacks, safe-area, exam secrecy, learning`);
+  console.log(`PASS ${width} ${mode}: reference answers/search/no explanations, topic state, Back/forward/callbacks, safe-area, exam secrecy, learning`);
  }
  // Test-only data: multiple answers, missing explanations, long banks, paging.
  for(const width of [375,390,430]){

@@ -49,7 +49,6 @@ export function QuestionReviewPage({ title, questions, platform, onBack, listenP
                 </li>)}
               </ul>
               {correct.size === 0 && <p className="question-review__empty">Правильный ответ не указан в данных.</p>}
-              {question.explanation?.trim() && <details className="question-review__explanation"><summary>Объяснение</summary><p>{question.explanation}</p></details>}
             </article>
           </li>;
         })}

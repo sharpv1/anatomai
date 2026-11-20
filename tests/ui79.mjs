@@ -65,7 +65,8 @@ try {
         return [...el.children].flatMap(child=>blocks.filter(name=>child.classList.contains(name)));
       }), ['topbar','hero','subjects','review','stats','study-promos','tip']);
       assert.equal(await home.locator('.hero + .section h3').innerText(),'Предметы');
-      assert.equal(await home.locator('.subjects + .section h3').innerText(),'Вопросы дня');
+      assert.equal(await home.locator('.subjects + .daily-questions').count(),1);
+      assert.equal(await home.getByRole('heading',{name:'Вопросы дня',exact:true}).count(),0);
       assert.equal(await home.locator('.review + .section h3').innerText(),'Твоя статистика');
       assert.equal(await home.locator('.activity,.chart,.days').count(),0);
       assert.equal(await home.locator('.stats--compact>div').count(),3);

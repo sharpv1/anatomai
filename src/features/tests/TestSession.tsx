@@ -62,7 +62,7 @@ export function TestSession({ test, platform, onComplete, onExit, initialMode }:
             </button>;
           })}
         </div>
-        {checked && session.question.explanation && <div className={`test-explanation ${session.confirmedAnswer === session.question.correctAnswer ? 'test-explanation--correct' : ''}`} role="status"><strong>{session.confirmedAnswer === session.question.correctAnswer ? 'Правильно' : 'Есть что повторить'}</strong>{session.question.explanation && <p>{session.question.explanation}</p>}</div>}
+        {checked && <span className="test-answer-status" role="status">{session.confirmedAnswer === session.question.correctAnswer ? 'Правильно' : 'Ответ неверный. Правильный ответ выделен.'}</span>}
       </div>
     </div>
     <footer className="test-session__footer"><div className="test-session__footer-actions">
