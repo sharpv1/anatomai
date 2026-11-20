@@ -1,0 +1,72 @@
+name: MEDEXA backend foundation
+
+on:
+  pull_request:
+    paths:
+      - backend/**
+      - docs/MEDEXA_BACKEND_ARCHITECTURE.md
+      - .github/workflows/medexa-backend.yml
+  push:
+    branches: [feature/medexa-backend-foundation]
+    paths:
+      - backend/**
+      - docs/MEDEXA_BACKEND_ARCHITECTURE.md
+      - .github/workflows/medexa-backend.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: medexa-backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: medexa_foundation_test
+          POSTGRES_USER: medexa_foundation_test
+          # Synthetic credentials for an ephemeral runner; not a production secret.
+          POSTGRES_PASSWORD: ci-only-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U medexa_foundation_test -d medexa_foundation_test"
+          --health-interval 3s --health-timeout 2s --health-retries 20
+    env:
+      MEDEXA_ENVIRONMENT: test
+      MEDEXA_RUN_DB_TESTS: "1"
+      MEDEXA_DB_HOST: 127.0.0.1
+      MEDEXA_DB_NAME: medexa_foundation_test
+      MEDEXA_DB_USER: medexa_foundation_test
+      MEDEXA_DB_PASSWORD: ci-only-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.13.6"
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install locked Python dependencies
+        run: uv sync --locked
+      - name: Ruff, mypy, unit and PostgreSQL 16 migration tests
+        env:
+          MEDEXA_DB_PORT: ${{ job.services.postgres.ports[5432] }}
+        run: uv run --no-sync sh scripts/check.sh
+      - name: Validate isolated Compose definitions without printing environment
+        env:
+          MEDEXA_TEST_DB_PASSWORD: ci-compose-validation-only
+        run: |
+          docker compose -f compose.dev.yaml config --quiet
+          docker compose -f compose.test.yaml config --quiet
+      - name: Build non-root runtime image (no deployment)
+        run: docker build --target runtime --tag medexa-foundation-ci:${{ github.sha }} .
