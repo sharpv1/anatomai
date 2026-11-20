@@ -1,18 +1,3 @@
-/* Actual DOM scroll owners. This changes indicators, never overflow behaviour. */
-.shell__content,
-.shell .test-session__content,
-.shell .test-mode-picker,
-.shell .test-result,
-.shell .subjects {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.shell__content::-webkit-scrollbar,
-.shell .test-session__content::-webkit-scrollbar,
-.shell .test-mode-picker::-webkit-scrollbar,
-.shell .test-result::-webkit-scrollbar,
-.shell .subjects::-webkit-scrollbar { display: none; width: 0; height: 0; }
-
 .page-view[hidden] { display: none; }
 .page-view:not([hidden]), .shell .test-result { animation: page-enter var(--motion-page) ease-out; }
 @keyframes page-enter {

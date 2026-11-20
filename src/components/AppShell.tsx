@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { attachZoomLock } from '../platform/telegram/zoomLock';
 import type { AppRoute } from './BottomNavigation';
 import { BottomNavigation } from './BottomNavigation';
+import '../styles/scrollbars.css';
 
 type AppShellProps = { children: ReactNode; route: AppRoute; onRouteChange: (route: AppRoute) => void; toast: string; onCloseToast: () => void; hideNavigation?: boolean };
 
