@@ -18,7 +18,7 @@ from app.imports.templates import document
 async def main() -> None:
     assert os.getuid() == 10001
     assert not Path("/app/tests").exists() and not Path("/app/scripts").exists()
-    assert EXPECTED_SCHEMA_REVISION == "0007_publishing"
+    assert EXPECTED_SCHEMA_REVISION == "0008_learning_attempts"
     store = Store(
         Settings(
             db_name="medexa_foundation_test",

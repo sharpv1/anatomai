@@ -27,7 +27,7 @@ production-конфигурации или интеграции с React.
 с произвольным actor_id нет. `/live` и `/ready` выбраны согласно заданию этапа 1;
 в архитектурном реестре использовались более длинные `/health/*`.
 
-Текущая head — `0007_publishing`. Источники/лицензии и второй reviewer для вопросов необязательны; новая политика описана в архитектуре и ADMIN.md. Добавлен MFA-gated API медицинских черновиков и
+Текущая head — `0008_learning_attempts`. Источники/лицензии и второй reviewer для вопросов необязательны; новая политика описана в архитектуре и ADMIN.md. Добавлен MFA-gated API медицинских черновиков и
 операторское TOTP enrollment/recovery: [ADMIN.md](ADMIN.md). Импорт/DB worker/CSV reports реализованы в **3b.2**: [IMPORTS.md](IMPORTS.md).
 Явный publish/withdraw/restore реализован в 3b.3: [PUBLISHING.md](PUBLISHING.md); отдельный review вопросов не требуется. Content.md/CONTENT_REPORT.md описывают
 исторический этап 3a; публичные контракты совместимы.
@@ -202,3 +202,11 @@ release commit. Никаких изменений Frontend, production/preview C
 описаны в [PUBLISHING.md](PUBLISHING.md). Отчёт — [PUBLISHING_REPORT.md](PUBLISHING_REPORT.md).
 Импорт никогда не публикует автоматически; default dev worker обслуживает обе очереди
 одним процессом. Frontend/Production/Preview не интегрировались и не разворачивались.
+
+### Learning Attempts 4a
+
+Серверный snapshot/submit/advance/skip/finish/abandon/resume и frozen result —
+[LEARNING.md](LEARNING.md), результаты — [LEARNING_REPORT.md](LEARNING_REPORT.md).
+Learning доступен обычному авторизованному пользователю без MFA; чужие attempts
+недоступны даже admin через пользовательские маршруты. Exam/XP/статистика/React
+не добавлены, импорт по-прежнему не публикует автоматически.

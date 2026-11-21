@@ -236,7 +236,9 @@ async def test_reference_limits(content_client, content_data, params):
     ).status_code == 422
 
 
-async def test_no_write_or_attempt_endpoints(content_client, content_data):
+async def test_catalog_is_read_only_and_learning_requires_a_valid_command(
+    content_client, content_data
+):
     client, _, _ = content_client
     session = await authenticate(client)
     headers = {"Origin": ORIGIN, "X-CSRF-Token": session["csrf_token"]}
@@ -249,7 +251,7 @@ async def test_no_write_or_attempt_endpoints(content_client, content_data):
         assert (
             await client.post(path, json={"status": "published"}, headers=headers)
         ).status_code == 405
-    assert (await client.post("/api/v1/attempts", json={}, headers=headers)).status_code == 404
+    assert (await client.post("/api/v1/attempts", json={}, headers=headers)).status_code == 422
 
 
 async def test_plain_text_note_and_empty_unknown_material(content_client, content_data, database):

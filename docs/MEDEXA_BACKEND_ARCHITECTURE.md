@@ -862,3 +862,33 @@ restore withdrawn версии создаёт новую опубликован�
 withdrawn→published UPDATE старой записи: будущие attempts сохраняют исходные FK.
 Публикационные DML повышают catalog_version, stale cursors инвалидируются.
 Публикация родителей каталога/attempt engine/XP/платежи/административный UI не добавлены.
+
+### Реализованный срез 4a (0008_learning_attempts)
+
+[Контракт Learning](../backend/LEARNING.md), [отчёт](../backend/LEARNING_REPORT.md).
+POST /api/v1/attempts выбирает ровно один discipline_id/topic_id/test_definition_id;
+только learning/regular, опубликованный доступный ordered_all v1 без question_limit.
+Порядок тем/вопросов/вариантов фиксирован; дисциплина дедуплицирует question IDs.
+Максимум 5000 вопросов, пустой набор запрещён. Одна активная попытка на user.
+
+0008 реализует attempts, immutable attempt_items, attempt_item_options, committed/skipped
+attempt_responses и permanent compact attempt_commands. Предложенные draft response/
+response_options из §5.4 пока не активируются: single-choice хранит один selected_option_id,
+защищённый composite FK(item,revision,option). Будущее расширение Exam/multiple-choice
+потребует отдельной additive миграции. Тексты и ключи — исходные immutable Content
+revisions/options, а не дублирующий банк. Snapshot seal обязателен до commit.
+
+GET /me/active-attempt и /attempts/{id} — resume; POST submit/advance/skip/finish/abandon
+соответствуют §7.2. Безопасные output DTO разделяют awaiting_answer/checked: keys и
+explanation выдаются только после committed submit (объяснение включено по ТЗ 4a,
+независимо от прежнего отображения текущим Frontend). В abandoned нет результата.
+GET /attempts/{id}/result — completed агрегаты и wall-clock duration из сервера.
+Никаких profile history/statistics/XP projections пока нет.
+
+Idempotency-Key/исходный If-Match, user→attempt lock, versioned immutable response,
+partial UNIQUE active/user, permanent receipt и deferred frozen-result guards защищают
+конкуренцию/сетевые повторы. Receipt после TTL восстанавливает исходную позицию/checked
+состояние, не подставляет текущий ответ из другого вопроса. Все операции — owner-only.
+Публикация/withdraw/restore не меняют начатый snapshot; пользовательские часы не
+принимаются. Learning idle TTL и Exam timer/finalizer не включены. Старые 0001–0007
+не переписаны; destructive downgrade при наличии learning history запрещён.
