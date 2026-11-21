@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 
 from app.api.health import router
+from app.content.api import router as content_router
 from app.core.config import Settings
 from app.core.errors import ErrorEnvelope, register_error_handlers
 from app.core.logging import configure_logging
@@ -43,4 +44,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(router)
     app.include_router(identity_router)
+    app.include_router(content_router)
     return app

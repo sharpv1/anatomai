@@ -22,22 +22,26 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     telegram_bot_token: SecretStr | None = None
     csrf_signing_key: SecretStr | None = None
+    content_cursor_signing_key: SecretStr | None = None
+    content_asset_delivery_enabled: bool = False
     app_origin: str = "https://localhost"
     init_data_max_age_seconds: int = Field(default=300, ge=1, le=300)
     session_absolute_seconds: int = Field(default=604800, ge=60, le=604800)
     session_idle_seconds: int = Field(default=86400, ge=60, le=86400)
     login_rate_limit: int = Field(default=10, ge=1, le=100)
 
-    @field_validator("telegram_bot_token", "csrf_signing_key", mode="before")
+    @field_validator(
+        "telegram_bot_token", "csrf_signing_key", "content_cursor_signing_key", mode="before"
+    )
     @classmethod
     def blank_secret_is_disabled(cls, value: object) -> object:
         return None if value == "" else value
 
-    @field_validator("csrf_signing_key")
+    @field_validator("csrf_signing_key", "content_cursor_signing_key")
     @classmethod
-    def strong_csrf_key(cls, value: SecretStr | None) -> SecretStr | None:
+    def strong_signing_key(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None and len(value.get_secret_value().encode()) < 32:
-            raise ValueError("CSRF signing key must contain at least 32 bytes")
+            raise ValueError("Signing key must contain at least 32 bytes")
         return value
 
     @field_validator("telegram_bot_token")

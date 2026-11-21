@@ -1,5 +1,7 @@
 import asyncio
+import hashlib
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,10 +12,24 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.content import models as content_models  # noqa: F401 -- metadata
+from app.content.models import (
+    Category,
+    ContentSource,
+    Discipline,
+    Question,
+    QuestionOption,
+    QuestionRevision,
+    Topic,
+    TopicQuestion,
+)
+from app.content.models import (
+    TestDefinition as Definition,
+)
 from app.core.config import Settings
 from app.db.base import Base
 from app.db.database import Database
-from app.identity.models import User
+from app.identity.models import User, UserRole
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -91,3 +107,124 @@ async def make_actor(database):
 @pytest.fixture
 async def actor(make_actor):
     return await make_actor()
+
+
+@pytest.fixture
+async def content_data(database, make_actor):
+    author, reviewer = await make_actor(), await make_actor()
+    suffix = uuid4().hex
+    async with database.sessions.begin() as db:
+        db.add(UserRole(user_id=reviewer, role_code="content_reviewer"))
+        await db.flush()
+        source = ContentSource(
+            id=uuid4(),
+            slug="test-" + suffix,
+            title="SYNTHETIC TEST SOURCE",
+            attribution="TEST ONLY, not a medical source",
+            license_reference="SYNTHETIC FIXTURE ONLY",
+            reviewed_by=reviewer,
+            reviewed_at=datetime.now(UTC),
+            status="published",
+        )
+        d = Discipline(
+            id=uuid4(),
+            slug=suffix,
+            title="Служебная дисциплина " + suffix,
+            icon_key="test",
+            color_token="blue",
+            position=0,
+            status="published",
+        )
+        db.add_all([source, d])
+        await db.flush()
+        category = Category(
+            id=uuid4(),
+            discipline_id=d.id,
+            slug=suffix,
+            title="Служебная категория",
+            position=0,
+            status="published",
+        )
+        db.add(category)
+        await db.flush()
+        topic = Topic(
+            id=uuid4(),
+            discipline_id=d.id,
+            category_id=category.id,
+            slug=suffix,
+            title="Служебная тема " + suffix,
+            position=0,
+            status="published",
+        )
+        db.add(topic)
+        await db.flush()
+        definition = Definition(
+            id=uuid4(),
+            topic_id=topic.id,
+            slug=suffix,
+            title="Служебный набор",
+            exam_duration_seconds=90,
+            status="published",
+            internal_difficulty="DO-NOT-EXPOSE",
+        )
+        db.add(definition)
+        questions = []
+        revisions = []
+        options = []
+        for i in range(3):
+            q = Question(id=uuid4(), external_source="synthetic-tests", external_id=uuid4().hex)
+            db.add(q)
+            await db.flush()
+            revision = QuestionRevision(
+                id=uuid4(),
+                question_id=q.id,
+                revision_number=1,
+                text=[
+                    "Служебный Ёж врач 100%_",
+                    "Служебный длинный вопрос " + "текст " * 100,
+                    "DRAFT SECRET QUESTION",
+                ][i],
+                explanation="SECRET-EXPLANATION",
+                source_id=source.id,
+                created_by=author,
+                medical_review_by=reviewer,
+                reviewed_at=datetime.now(UTC),
+                fingerprint=hashlib.sha256((suffix + str(i)).encode()).hexdigest(),
+                status="draft",
+            )
+            db.add(revision)
+            await db.flush()
+            choices = [
+                QuestionOption(
+                    id=uuid4(),
+                    revision_id=revision.id,
+                    position=j,
+                    code=chr(65 + j),
+                    text="Служебный вариант " + str(j),
+                    is_correct=j == 0,
+                )
+                for j in range(2)
+            ]
+            db.add_all(choices)
+            await db.flush()
+            if i < 2:
+                revision.status = "published"
+                await db.flush()
+                q.current_revision_id = revision.id
+            db.add(TopicQuestion(topic_id=topic.id, question_id=q.id, position=i))
+            questions.append(q)
+            revisions.append(revision)
+            options.append(choices)
+        return dict(
+            d=d,
+            category=category,
+            topic=topic,
+            definition=definition,
+            source=source,
+            author=author,
+            reviewer=reviewer,
+            questions=questions,
+            revisions=revisions,
+            options=options,
+            suffix=suffix,
+        )
