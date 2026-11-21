@@ -18,7 +18,19 @@ async def test_upgrade_preserves_learning_answers_and_original_replay(
     async with authenticated(committed_settings, monkeypatch) as (client, headers, db):
         tid = await bank(db)
         h = {**headers, "Idempotency-Key": str(uuid4())}
-        start = await client.post("/api/v1/attempts", json={"topic_id": str(tid)}, headers=h)
+        # Model a pre-0010 Learning snapshot, which did not store per-item topic attribution.
+        from sqlalchemy import event
+
+        from app.attempts.models import AttemptItem
+
+        def legacy_item(mapper, connection, target):
+            target.topic_id = None
+
+        event.listen(AttemptItem, "before_insert", legacy_item)
+        try:
+            start = await client.post("/api/v1/attempts", json={"topic_id": str(tid)}, headers=h)
+        finally:
+            event.remove(AttemptItem, "before_insert", legacy_item)
         assert start.status_code == 201, start.text
         item = start.json()["data"]["current_item"]
         aid = start.json()["data"]["id"]

@@ -64,6 +64,14 @@ class Attempt(Base):
         ),
         Index("ix_attempts_user_id_id", "user_id", "id"),
         Index(
+            "ix_attempts_completed_history",
+            "user_id",
+            "progress_epoch",
+            text("finalized_at DESC"),
+            text("id DESC"),
+            postgresql_where=text("status='completed'"),
+        ),
+        Index(
             "ix_attempts_exam_deadline",
             "deadline_at",
             postgresql_where=text("mode='exam' AND status='in_progress'"),
@@ -135,6 +143,7 @@ class AttemptItem(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     attempt_id: Mapped[UUID] = mapped_column(ForeignKey("attempts.id", ondelete="RESTRICT"))
     question_id: Mapped[UUID] = mapped_column(ForeignKey("questions.id", ondelete="RESTRICT"))
+    topic_id: Mapped[UUID | None] = mapped_column(ForeignKey("topics.id", ondelete="RESTRICT"))
     revision_id: Mapped[UUID]
     position: Mapped[int]
 

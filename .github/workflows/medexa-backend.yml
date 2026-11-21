@@ -7,7 +7,7 @@ on:
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
       - .github/workflows/medexa-backend.yml
   push:
-    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import, refactor/medexa-publication-policy, feature/medexa-import-staging, feature/medexa-content-publishing, feature/medexa-learning-attempts, feature/medexa-exam-attempts]
+    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import, refactor/medexa-publication-policy, feature/medexa-import-staging, feature/medexa-content-publishing, feature/medexa-learning-attempts, feature/medexa-exam-attempts, feature/medexa-progress-statistics]
     paths:
       - backend/**
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
@@ -79,3 +79,4 @@ jobs:
 
           docker run --rm --network host --read-only --env MEDEXA_ENVIRONMENT --env MEDEXA_DB_HOST --env MEDEXA_DB_PORT --env MEDEXA_DB_NAME --env MEDEXA_DB_USER --env MEDEXA_DB_PASSWORD --entrypoint python medexa-foundation-ci:${{ github.sha }} -m app.attempts.finalizer --once
           docker run --rm --network host --read-only --env MEDEXA_ENVIRONMENT --env MEDEXA_DB_HOST --env MEDEXA_DB_PORT --env MEDEXA_DB_NAME --env MEDEXA_DB_USER --env MEDEXA_DB_PASSWORD -i --entrypoint python medexa-foundation-ci:${{ github.sha }} - < scripts/exam_runtime_smoke.py
+          docker run --rm --network host --read-only --tmpfs /tmp:mode=1777,size=8m --env MEDEXA_ENVIRONMENT --env MEDEXA_DB_HOST --env MEDEXA_DB_PORT --env MEDEXA_DB_NAME --env MEDEXA_DB_USER --env MEDEXA_DB_PASSWORD -i --entrypoint python medexa-foundation-ci:${{ github.sha }} - < scripts/progress_runtime_smoke.py

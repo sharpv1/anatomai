@@ -910,3 +910,34 @@ finalizer с poll 2с и user→attempt lock; тот же финализатор
 порционный snapshot review. Общая схема и начатые Learning-попытки совместимы с 0008.
 Завершённый результат не переписывается при изменении контента. Сервер не может сохранять
 не переданные клиентом offline-ответы; это отдельный контракт будущей UI-интеграции.
+
+
+### Реализованный срез 5 (0010_progress_statistics)
+
+Сводки/история/ошибки/прогресс — owner-scoped SQL read models из completed attempts
+текущего progress_epoch и их immutable responses. Active/abandoned не учитываются;
+Exam timeout — completed. Нет второго хранилища ответов/результатов, накопительных
+счётчиков, XP и обработчика начислений: повтор финализации/replay не удваивает сумму.
+Среднее считается по точным numeric долям, до округления. Новый completed-history
+индекс поддерживает keyset pagination finalized_at DESC/id DESC.
+
+0010 добавляет nullable attempt_items.topic_id для будущих sealed snapshots, без
+правки 0001–0009. Legacy topic/test используют fallback attempt.topic_id;
+неоднозначные legacy discipline ответы отмечены unattributed_topic_responses,
+не приписываются темам из изменяемого текущего каталога.
+
+Календарь вычисляется по finalized_at и immutable timezone_at_start (сохранённая
+зона попытки), без переноса прежних дат после смены настройки. Week/month — локальные
+календарные границы; DST поддерживается IANA/PG. Четыре вычислимых достижения основаны
+на завершённых попытках; остальные пять not_configured. Постоянных grants/ledger нет,
+granted_at=null. Подробный контракт и ограничения: [PROGRESS.md](../backend/PROGRESS.md).
+
+API: /me/attempts, /me/statistics, /me/progress и disciplines/topics, /me/activity,
+/me/calendar, /me/result-trends, /me/mistakes, /me/topics/{id}/summary,
+/me/recommendations, /me/daily-topic, /me/achievements, /me/home,
+/attempts/{id}/result-review. Все новые маршруты требуют progress.self; admin также
+не получает чужие данные. Cursor привязан к owner/epoch/фильтрам. Исторический
+result-review использует исходный snapshot и текущий reference lock для Exam.
+Daily selection фиксируется один раз в маленькой immutable daily_recommendations;
+weak-topic heuristic документирована, отсутствующие результаты не выдумываются.
+Новый worker, backend-кеш, Frontend-интеграция и deployment не добавлены.

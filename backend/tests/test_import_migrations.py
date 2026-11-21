@@ -70,7 +70,7 @@ async def test_downgrade_refuses_loss_of_immutable_license_metadata(database, ac
                 await connection.run_sync(downgrade)
             assert (
                 await connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0009_exam_attempts"
+                == "0010_progress_statistics"
             )
             assert await connection.scalar(text("SELECT to_regclass('import_jobs') IS NOT NULL"))
         finally:

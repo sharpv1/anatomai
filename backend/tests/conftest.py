@@ -34,6 +34,7 @@ from app.db.base import Base
 from app.db.database import Database
 from app.identity.models import User, UserRole
 from app.imports import models as import_models  # noqa: F401 -- metadata
+from app.progress import models as progress_models  # noqa: F401 -- metadata
 from app.publishing import models as publishing_models  # noqa: F401 -- metadata
 
 ROOT = Path(__file__).resolve().parents[1]
