@@ -2,7 +2,7 @@
 
 Основа: `d190b9d00d7f33ceeb16d91878685085c580a491`, политика 0005.
 Импорт сохраняет **только черновики**. Источник, лицензия, страница, объяснение
-и второй рецензент не обязательны. HTTP-публикация остаётся закрытой до 3b.3.
+и второй рецензент не обязательны. Явная HTTP-публикация реализована в 3b.3: [PUBLISHING.md](PUBLISHING.md).
 Frontend и административный веб-интерфейс этим этапом не добавляются.
 
 ## Простой шаблон v1
@@ -66,7 +66,7 @@ Reviewer не получает разрешение на импорт автом
    Старый cursor строк после retry даёт 409; сбой/отмена не означают rollback всего файла.
 
 Для rows/report в queued/processing возвращается 409 IMPORT_PROCESSING; счётчики
-доступны через detail. Чужой job редактору — 404. Нет URL raw/quarantine и HTTP publish.
+доступны через detail. Чужой job редактору — 404. Нет URL raw/quarantine; publish требует отдельного подтверждения 3b.3.
 Все ответы используют существующий Envelope/error contract и no-store.
 Секреты берите из существующей процедуры входа/MFA, не подставляйте в shell history.
 
@@ -102,7 +102,8 @@ docker compose -f compose.dev.yaml --profile tools run --rm migrate
 docker compose -f compose.dev.yaml --profile imports up -d api import-worker
 ```
 
-Нативно: `uv run python -m app.imports.worker` (либо `--once`). Один worker на БД:
+Нативно import-only: `uv run python -m app.imports.worker` (либо `--once`).
+В dev Compose один worker обслуживает обе очереди через `app.publishing.worker --with-imports`. Один тяжёлый job на БД:
 сессионный advisory lock + SKIP LOCKED, lease 120 s, token fencing, максимум 3 запуска.
 Worker использует pool_size=2: отдельное соединение singleton-lock и одно для транзакций.
 Actor status/права проверяются перед каждым batch. Истечение обычной сессии/MFA после
@@ -131,7 +132,7 @@ Compose RAM 512 MiB/CPU 0.5 — параметры для совместимог
 (до 100 за запуск), work/orphan files старше 24 часов (осмотр до 10000 entries).
 Не удаляет draft/questions, отчёты и audit. Если worker занят — повторить позже.
 Raw TTL относится только к файлам; normalized staging/reports пока сохраняются для
-3b.3 и аудита. Согласованный архив/удаление staging — отдельная операционная задача.
+публикации и аудита. Согласованный архив/удаление staging — отдельная операционная задача.
 
 ## Откат
 
@@ -140,3 +141,9 @@ Raw TTL относится только к файлам; normalized staging/repo
 созданные draft-вопросы. При license metadata в immutable history downgrade заранее
 отказывается от потери истории. Нельзя откатывать схему под работающим новым runtime.
 Здесь миграции выполняются только на одноразовой тестовой БД, не на VPS/Preview.
+
+### После подтверждения публикации
+
+См. [PUBLISHING.md](PUBLISHING.md): job/staging замораживаются; raw TTL
+не удаляет файлы queued/processing publication run. Статусы публикации находятся
+в отдельном отчёте `/api/v1/admin/publications/{id}`, не заменяют import status.

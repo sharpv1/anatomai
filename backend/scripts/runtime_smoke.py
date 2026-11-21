@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import app.main  # noqa: F401 -- production imports
+import app.publishing.worker  # noqa: F401 -- production publication queue
 from app.core.config import Settings
 from app.db.schema import EXPECTED_SCHEMA_REVISION
 from app.imports.runner import run_parser
@@ -17,7 +18,7 @@ from app.imports.templates import document
 async def main() -> None:
     assert os.getuid() == 10001
     assert not Path("/app/tests").exists() and not Path("/app/scripts").exists()
-    assert EXPECTED_SCHEMA_REVISION == "0006_import_staging"
+    assert EXPECTED_SCHEMA_REVISION == "0007_publishing"
     store = Store(
         Settings(
             db_name="medexa_foundation_test",

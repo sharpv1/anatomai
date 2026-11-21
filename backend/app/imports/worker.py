@@ -57,9 +57,9 @@ class Cancelled(Exception):
 
 
 class Worker:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, *, database: Database | None = None) -> None:
         self.settings = settings
-        self.database = Database(settings.model_copy(update={"db_pool_size": 2}))
+        self.database = database or Database(settings.model_copy(update={"db_pool_size": 2}))
         self.store = Store(settings)
         self.lock_connection: Any = None
 

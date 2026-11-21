@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from pydantic import SecretStr
+from pydantic import JsonValue, SecretStr
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +33,7 @@ def audit(
     entity_type: str,
     entity_id: UUID,
     request_id: UUID,
+    details: dict[str, JsonValue] | None = None,
 ) -> None:
     db.add(
         AuditEvent(
@@ -41,7 +42,7 @@ def audit(
             entity_type=entity_type,
             entity_id=entity_id,
             request_id=request_id,
-            safe_diff={},
+            safe_diff=details or {},
         )
     )
 

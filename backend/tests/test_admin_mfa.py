@@ -229,14 +229,14 @@ async def test_step_up_bootstrap_permission_cannot_be_used_for_other_admin_route
         async def invalid_bootstrap():
             return {"must_not_execute": True}
 
-        @actor.app.post("/api/v1/admin/unimplemented-publish")
-        @access("content.publish")
+        @actor.app.post("/api/v1/admin/unimplemented-roles")
+        @access("roles.manage")
         async def unpublished_handler():
             return {"must_not_execute": True}
 
         assert (await actor.client.get("/api/v1/admin/invalid-bootstrap")).status_code == 403
         assert (
-            await actor.client.post("/api/v1/admin/unimplemented-publish", headers=actor.headers)
+            await actor.client.post("/api/v1/admin/unimplemented-roles", headers=actor.headers)
         ).status_code == 403
 
 

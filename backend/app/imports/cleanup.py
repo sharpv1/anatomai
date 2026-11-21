@@ -5,12 +5,13 @@ import re
 import shutil
 from datetime import timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import exists, select, text
 
 from app.content.models import Asset
 from app.core.config import Settings
 from app.imports.models import ImportJob
 from app.imports.worker import WORKER_LOCK, Worker, now
+from app.publishing.models import PublicationRun
 
 
 async def cleanup(worker: Worker) -> int:
@@ -33,6 +34,12 @@ async def cleanup(worker: Worker) -> int:
                             .where(
                                 ImportJob.status.in_(["completed", "failed", "cancelled"]),
                                 ImportJob.raw_deleted_at.is_(None),
+                                ~exists(
+                                    select(PublicationRun.id).where(
+                                        PublicationRun.import_job_id == ImportJob.id,
+                                        PublicationRun.status.in_(["queued", "processing"]),
+                                    )
+                                ),
                                 ImportJob.updated_at < now() - timedelta(days=30),
                             )
                             .limit(100)

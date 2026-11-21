@@ -6,7 +6,13 @@ from app.core.errors import ApplicationError
 # Only implemented draft/staging routes can consume a verified MFA grant.
 # Publish/review/roles/payment permissions remain fail-closed.
 MFA_HTTP_PERMISSIONS = frozenset(
-    {"content.admin.read", "content.draft.write", "content.import.manage"}
+    {
+        "content.admin.read",
+        "content.draft.write",
+        "content.import.manage",
+        "content.publish",
+        "content.import.publish",
+    }
 )
 
 F = TypeVar("F", bound=Callable[..., object])
