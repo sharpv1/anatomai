@@ -303,7 +303,7 @@ async def test_server_round_half_up_and_full_completion(context, correct, expect
     )
 
 
-async def test_owner_csrf_and_no_exam_or_forged_result(context, admin_clients):
+async def test_owner_csrf_and_no_unsupported_mode_or_forged_result(context, admin_clients):
     a, _, _ = context
     r, _, _ = await start(context)
     aid = r.json()["data"]["id"]
@@ -333,7 +333,7 @@ async def test_owner_csrf_and_no_exam_or_forged_result(context, admin_clients):
     )
     assert missing.status_code == 403
     for body in (
-        {"mode": "exam", "topic_id": r.json()["data"]["topic_id"]},
+        {"mode": "unsupported", "topic_id": r.json()["data"]["topic_id"]},
         {"discipline_id": r.json()["data"]["discipline_id"], "correct": 99},
     ):
         assert (

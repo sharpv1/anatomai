@@ -25,7 +25,7 @@ from app.db.base import Base
 class Attempt(Base):
     __tablename__ = "attempts"
     __table_args__ = (
-        CheckConstraint("mode='learning' AND policy_version=1", name="mode_policy"),
+        CheckConstraint("mode IN ('learning','exam') AND policy_version=1", name="mode_policy"),
         CheckConstraint("scope IN ('discipline','topic','test')", name="scope"),
         CheckConstraint(
             "(scope='discipline' AND topic_id IS NULL AND test_definition_id IS NULL) "
@@ -63,6 +63,16 @@ class Attempt(Base):
             postgresql_where=text("status='in_progress'"),
         ),
         Index("ix_attempts_user_id_id", "user_id", "id"),
+        Index(
+            "ix_attempts_exam_deadline",
+            "deadline_at",
+            postgresql_where=text("mode='exam' AND status='in_progress'"),
+        ),
+        CheckConstraint(
+            "(mode='learning' AND deadline_at IS NULL) OR "
+            "(mode='exam' AND deadline_at IS NOT NULL AND deadline_at>started_at)",
+            name="deadline",
+        ),
         ForeignKeyConstraint(
             ["discipline_id", "topic_id"],
             ["topics.discipline_id", "topics.id"],
@@ -94,6 +104,7 @@ class Attempt(Base):
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.clock_timestamp()
     )
+    deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finish_reason: Mapped[str | None] = mapped_column(String(32))
     correct: Mapped[int | None]
@@ -214,5 +225,36 @@ class AttemptCommand(Base):
     request_hash: Mapped[str] = mapped_column(String(64))
     result: Mapped[dict[str, JsonValue]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
+
+
+class ExamAnswer(Base):
+    __tablename__ = "exam_answers"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["item_id", "attempt_id", "revision_id"],
+            ["attempt_items.id", "attempt_items.attempt_id", "attempt_items.revision_id"],
+            name="fk_exam_answers_item",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["item_id", "revision_id", "selected_option_id"],
+            [
+                "attempt_item_options.item_id",
+                "attempt_item_options.revision_id",
+                "attempt_item_options.option_id",
+            ],
+            name="fk_exam_answers_option",
+            ondelete="RESTRICT",
+        ),
+        Index("ix_exam_answers_attempt_id", "attempt_id"),
+    )
+    item_id: Mapped[UUID] = mapped_column(primary_key=True)
+    attempt_id: Mapped[UUID]
+    revision_id: Mapped[UUID]
+    selected_option_id: Mapped[UUID | None]
+    attempt_version: Mapped[int] = mapped_column(Integer, server_default=FetchedValue())
+    saved_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.clock_timestamp()
     )

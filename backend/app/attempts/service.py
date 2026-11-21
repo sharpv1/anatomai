@@ -1,5 +1,6 @@
 """All commands run in the existing identity transaction (user -> attempt lock)."""
 
+from datetime import timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
 
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.schemas import QuestionBody
 from app.attempts.models import Attempt, AttemptCommand, AttemptItem, AttemptOption, AttemptResponse
-from app.attempts.schemas import AttemptView, Start
+from app.attempts.schemas import AttemptView, ExamView, Start
 from app.content.models import (
     CatalogState,
     Discipline,
@@ -68,6 +69,10 @@ def result_data(a: Attempt) -> dict[str, Any]:
 async def view(
     db: AsyncSession, a: Attempt, projection: dict[str, Any] | None = None
 ) -> dict[str, Any]:
+    if a.mode == "exam":
+        from app.attempts.exam import exam_view
+
+        return await exam_view(db, a, projection)
     status = str(projection["status"]) if projection else a.status
     version = int(projection["version"]) if projection else a.version
     position = int(projection["current_position"]) if projection else a.current_position
@@ -154,6 +159,15 @@ async def view(
 async def create(request: Request, body: Start) -> Attempt:
     db = current_db(request)
     identity = current_identity(request)
+    from app.attempts.exam import expire
+
+    previous = await db.scalar(
+        select(Attempt)
+        .where(Attempt.user_id == identity.user.id, Attempt.status == "in_progress")
+        .with_for_update()
+    )
+    if previous is not None:
+        await expire(db, previous)
     active = await db.scalar(
         select(Attempt.id).where(
             Attempt.user_id == identity.user.id, Attempt.status == "in_progress"
@@ -171,6 +185,7 @@ async def create(request: Request, body: Start) -> Attempt:
     )
     if state is None:
         raise error("SERVICE_NOT_READY", status=503)
+    duration = 0
     scope = "discipline"
     topic_id = None
     definition_id = None
@@ -181,13 +196,14 @@ async def create(request: Request, body: Start) -> Attempt:
         if (
             definition.selection_policy != "ordered_all"
             or definition.policy_version != 1
-            or definition.question_limit is not None
+            or (body.mode == "learning" and definition.question_limit is not None)
         ):
             raise error(
                 "UNSUPPORTED_SELECTION",
                 "Поддерживается только полный упорядоченный набор policy v1.",
                 422,
             )
+        duration = definition.exam_duration_seconds
         topic_id = definition.topic_id
         definition_id = definition.id
         scope = "test"
@@ -241,6 +257,20 @@ async def create(request: Request, body: Start) -> Attempt:
     ).all()
     if not selected:
         raise error("EMPTY_QUESTION_SET", "В выбранном наборе нет доступных вопросов.")
+    if body.mode == "exam":
+        limit = body.question_count
+        if definition_id and definition is not None and definition.question_limit is not None:
+            if limit is not None and limit > definition.question_limit:
+                raise error("QUESTION_COUNT_UNAVAILABLE", "Количество превышает лимит теста.", 422)
+            limit = limit or definition.question_limit
+        if limit is not None:
+            if limit > len(selected):
+                raise error("QUESTION_COUNT_UNAVAILABLE", "Недостаточно доступных вопросов.", 422)
+            selected = selected[:limit]
+        # Scope without a definition: server policy v1, 60 seconds per selected question.
+        duration = duration or min(len(selected) * 60, 86400)
+        if not 1 <= duration <= 86400:
+            raise error("UNSUPPORTED_DURATION", "Длительность экзамена вне политики v1.", 422)
     if len(selected) > 5000:
         raise error("ATTEMPT_LIMIT", "Выберите тему или тест до 5000 вопросов.", 422)
     ids = [row.revision_id for row in selected]
@@ -276,7 +306,12 @@ async def create(request: Request, body: Start) -> Attempt:
             raise error(
                 "INVALID_QUESTION_SET", "Набор содержит неподдерживаемый вопрос.", 422
             ) from None
+    now = await db.scalar(select(func.clock_timestamp()))
+    assert now is not None
     attempt = Attempt(
+        mode=body.mode,
+        started_at=now,
+        deadline_at=now + timedelta(seconds=duration) if body.mode == "exam" else None,
         id=uuid4(),
         user_id=identity.user.id,
         scope=scope,
@@ -291,6 +326,7 @@ async def create(request: Request, body: Start) -> Attempt:
     )
     db.add(attempt)
     await db.flush()
+    await db.refresh(attempt)
     items = [
         AttemptItem(
             id=uuid4(),
@@ -359,7 +395,11 @@ async def finalize(db: AsyncSession, a: Attempt, reason: str) -> None:
     a.skipped = sum(s == "skipped" for s, _ in records)
     a.answered = a.correct + a.wrong
     a.percent = (2 * a.correct * 100 + a.total) // (2 * a.total)
-    a.finalized_at = await db.scalar(select(func.clock_timestamp()))
+    now = await db.scalar(select(func.clock_timestamp()))
+    assert now is not None
+    if a.mode == "exam" and a.deadline_at is not None and now >= a.deadline_at:
+        reason = "timeout"
+    a.finalized_at = a.deadline_at if reason == "timeout" else now
     assert a.finalized_at
     a.duration_seconds = max(0, int((a.finalized_at - a.started_at).total_seconds()))
     a.status = "completed"
@@ -370,6 +410,13 @@ async def mutate(
     request: Request, a: Attempt, operation: str, body: Any, item_id: UUID | None
 ) -> None:
     db = current_db(request)
+    if a.mode == "exam":
+        from app.attempts.exam import mutate_exam
+
+        await mutate_exam(request, a, operation, body, item_id)
+        return
+    if operation not in ("submit", "advance", "skip", "finish", "abandon"):
+        raise error("LEARNING_OPERATION_UNSUPPORTED", status=422)
     if a.status != "in_progress":
         raise error("ATTEMPT_CLOSED")
     current = await db.scalar(
@@ -452,11 +499,15 @@ async def command(
     actor = current_identity(request).user.id
     if attempt_id is not None:
         await owned(request, attempt_id)
+    payload_body = body.model_dump(mode="json")
+    if operation == "start" and body.mode == "learning":
+        # Preserve canonical fingerprints of 0008 clients and their permanent receipts.
+        payload_body.pop("question_count", None)
     payload = {
         "attempt_id": str(attempt_id) if attempt_id else None,
         "item_id": str(item_id) if item_id else None,
         "if_match": request.headers.get("if-match") if attempt_id else None,
-        "body": body.model_dump(mode="json"),
+        "body": payload_body,
     }
 
     async def apply(session: AsyncSession) -> StoredResponse:
@@ -472,9 +523,11 @@ async def command(
             if receipt.request_hash != h:
                 raise error("IDEMPOTENCY_KEY_REUSED")
             original = await owned(request, receipt.attempt_id)
-            replay = AttemptView.model_validate(
-                await view(session, original, receipt.result)
-            ).model_dump(mode="json")
+            replay = (
+                (ExamView if original.mode == "exam" else AttemptView)
+                .model_validate(await view(session, original, receipt.result))
+                .model_dump(mode="json")
+            )
             return StoredResponse(200, replay, receipt.attempt_id)
         if attempt_id is None:
             a = await create(request, body)
@@ -490,7 +543,11 @@ async def command(
                     {"version": a.version},
                 )
             await mutate(request, a, operation, body, item_id)
-        data = AttemptView.model_validate(await view(db, a)).model_dump(mode="json")
+        data = (
+            (ExamView if a.mode == "exam" else AttemptView)
+            .model_validate(await view(db, a))
+            .model_dump(mode="json")
+        )
         session.add(
             AttemptCommand(
                 actor_id=actor,
@@ -499,6 +556,16 @@ async def command(
                 key=key,
                 request_hash=h,
                 result={
+                    "status": data["status"],
+                    "version": data["version"],
+                    "current_position": data["current_position"],
+                    "remaining_seconds": data["remaining_seconds"],
+                    "selected_option_ids": data["current_item"]["selected_option_ids"]
+                    if data["current_item"]
+                    else [],
+                }
+                if a.mode == "exam"
+                else {
                     "status": data["status"],
                     "version": data["version"],
                     "current_position": data["current_position"],

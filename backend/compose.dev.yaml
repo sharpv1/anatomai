@@ -82,6 +82,15 @@ services:
     depends_on:
       db: {condition: service_healthy}
 
+  exam-finalizer:
+    <<: *runtime
+    profiles: [exams]
+    command: [python, -m, app.attempts.finalizer]
+    read_only: true
+    mem_limit: 192m
+    depends_on:
+      db: {condition: service_healthy}
+
 networks:
   foundation: {}
 volumes:
