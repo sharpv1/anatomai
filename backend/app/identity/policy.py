@@ -20,7 +20,7 @@ SELF_PERMISSIONS = frozenset(
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "student": SELF_PERMISSIONS,
     "content_editor": SELF_PERMISSIONS
-    | {"content.draft.write", "content.admin.read", "admin.step_up"},
+    | {"content.draft.write", "content.admin.read", "content.publish", "admin.step_up"},
     "content_reviewer": SELF_PERMISSIONS
     | {"content.publish", "content.admin.read", "admin.step_up"},
     "support": SELF_PERMISSIONS | {"support.read"},
@@ -32,6 +32,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "content.admin.read",
         "admin.step_up",
         "content.publish",
+        "content.import.publish",
         "support.read",
         "billing.manage",
     },

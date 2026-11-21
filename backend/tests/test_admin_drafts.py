@@ -337,13 +337,17 @@ async def test_source_search_pagination_and_soft_archive(admin_clients, database
         ).status_code == 404
 
 
-async def test_new_source_cannot_set_its_author_as_its_own_reviewer(admin_clients, database):
-    from sqlalchemy.exc import IntegrityError
-
+async def test_source_legacy_review_metadata_has_no_independent_reviewer_constraint(
+    admin_clients, database
+):
     async with admin_clients() as actor:
         s = await source(actor)
-        with pytest.raises(IntegrityError) as exc:
-            async with database.sessions.begin() as db:
+        async with database.sessions() as db:
+            await db.begin()
+            try:
                 row = await db.get(ContentSource, UUID(s["id"]))
                 row.reviewed_by = actor.user_id
-        assert '"ck_content_sources_independent_review"' in str(exc.value.orig)
+                await db.flush()
+                assert row.reviewed_by == row.created_by
+            finally:
+                await db.rollback()

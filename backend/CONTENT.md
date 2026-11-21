@@ -1,5 +1,8 @@
 # MEDEXA Backend 2.0 — этап 3a: read-only medical content
 
+> Исторический контракт этапа 3a. В 0005 изменена политика вопросов: provenance/reviewer gate снят, source не требуется для выдачи published вопросов. Текущие правила — [ADMIN.md](ADMIN.md) и [архитектура](../docs/MEDEXA_BACKEND_ARCHITECTURE.md); требования второго reviewer/лицензий ниже описывают прежнюю редакцию.
+
+
 Основа: `5450646f0f896bd261a4db6f71073f1e2bf66701`, Identity PR #23;
 требования — [архитектура, §5.3, §9.2, §14](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
 Frontend, старый Backend, действующие БД и инфраструктура не подключены.

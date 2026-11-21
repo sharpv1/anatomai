@@ -69,19 +69,18 @@ async def test_published_history_is_immutable(database, content_data, target):
 
 @pytest.mark.parametrize(
     "failure",
-    ["no_reviewer", "same_author", "no_source", "no_correct", "two_correct", "multiple_choice"],
+    ["no_correct", "two_correct", "multiple_choice", "blank_question", "blank_option"],
 )
 async def test_invalid_publication_is_rejected_at_commit(database, content_data, failure):
     d = content_data
     with pytest.raises(DBAPIError):
         async with database.sessions.begin() as db:
             revision = await db.get(QuestionRevision, d["revisions"][2].id)
-            if failure == "no_reviewer":
-                revision.medical_review_by = None
-            if failure == "same_author":
-                revision.medical_review_by = revision.created_by
-            if failure == "no_source":
-                revision.source_id = None
+            if failure == "blank_question":
+                revision.text = " \t "
+            if failure == "blank_option":
+                option = await db.get(QuestionOption, d["options"][2][0].id)
+                option.text = " \t "
             if failure == "multiple_choice":
                 revision.kind = "multiple_choice"
             if failure in ("no_correct", "two_correct"):
@@ -169,15 +168,19 @@ async def test_new_revision_replaces_pointer_without_rewriting_old_history(datab
         assert (await db.get(Question, question.id)).current_revision_id == revision.id
 
 
-async def test_rights_cannot_be_marked_published_without_approval(database):
-    with pytest.raises(DBAPIError):
-        async with database.sessions.begin() as db:
-            db.add(
-                ContentSource(
-                    id=uuid4(),
-                    slug=uuid4().hex,
-                    title="UNVERIFIED",
-                    attribution="NO RIGHTS",
-                    status="published",
-                )
+async def test_source_metadata_publication_does_not_require_approval_or_license(database):
+    async with database.sessions() as db:
+        await db.begin()
+        try:
+            source = ContentSource(
+                id=uuid4(),
+                slug=uuid4().hex,
+                title="SYNTHETIC METADATA",
+                attribution="TEST ONLY",
+                status="published",
             )
+            db.add(source)
+            await db.flush()
+            assert source.license_reference is None and source.reviewed_by is None
+        finally:
+            await db.rollback()

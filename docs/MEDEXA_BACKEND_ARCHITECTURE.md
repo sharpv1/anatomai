@@ -4,6 +4,8 @@
 
 Основание аудита: ANATOMAI UI 8.3.2, ветка `fix/anatomai-scrollbars-8.3.2`, коммит `b3576d515aa39923daec20e0e420456c8bf96e7e`. Документ подготовлен в отдельной ветке `docs/medexa-backend-architecture`. Проверены исходники и существующие тесты; работающий Preview, VPS и старый Backend не исследовались и не изменялись. Данные об их фактической конфигурации отсутствуют.
 
+**Редакция политики вопросов от 21.11.2026:** источники и лицензии необязательны; отдельный медицинский reviewer не является условием публикации. Структурно корректные собственные вопросы может публиковать администратор или уполномоченный редактор. Импортированный набор публикуется по явному подтверждению администратора. MFA, права, file security, audit и immutable версии сохраняются. Реализованные изменения схемы/DTO — `0005_publication_policy`; HTTP import/publish остаются этапами 3b.2–3b.3.
+
 **Решение:** модульный монолит FastAPI с PostgreSQL как единственным источником истины. Один процесс API и небольшой обработчик фоновых заданий без Redis/Celery. Сервер хранит версии вопросов, попытки, ответы, результаты и журнал начислений. Клиент сохраняет существующие компоненты, оформление и Telegram lifecycle, получая данные через типизированный API-слой.
 
 Решения ниже разделены на подтверждённое поведение Frontend и предлагаемое поведение нового Backend. Предлагаемые сроки сессий, лимиты, правила XP, коммерческий продукт и эксплуатационные показатели требуют проверки/утверждения до соответствующего этапа реализации. Они не описывают уже работающие возможности.
@@ -15,7 +17,7 @@
 - Финальный бренд — MEDEXA. `@medexapp` — планируемый бот: владение, числовой bot ID, токен и настройки Mini App пока не подтверждены.
 - Старый Backend не является источником данных, авторизации или миграций. Не подключать его БД, токены, тома, очереди и сетевые сервисы.
 - Существующий Frontend React 19 / TypeScript / Vite и его дизайн сохраняются. Переименование бренда в интерфейсе — отдельная согласуемая задача, не часть этого документа.
-- Сейчас создаётся только этот документ. Не создаются Python-модули, миграции, Docker-конфигурация, API-клиент или серверные секреты. Нет deploy, merge, изменений main/Preview.
+- Foundation, Identity, read-only Content и MFA/draft admin реализованы в отдельных feature-ветках. Этот документ описывает также будущие этапы; наличие строки API в реестре не означает доступность endpoint. Frontend, main, Preview, Production и старый Backend не изменяются; deploy/merge отсутствуют.
 
 ## 2. Аудит Frontend UI 8.3.2
 
@@ -36,7 +38,7 @@
 
 В проверенном `src` не обнаружены вызовы `fetch`, `localStorage`, `sessionStorage` или IndexedDB. React state и `window.history` не являются хранилищем пользовательской истории. В проекте нет подключённой серверной истории, API-авторизации, реального XP, избранного, платежей и материалов конспектов.
 
-Фактический банк: **4 дисциплины/теста, 10 вопросов** — anatomy: 5, physiology: 3, neuro: 1, histology: 1. Строки `meta` обещают 20/15/25/10 вопросов, но эти числа не соответствуют массивам; текущий каталог правильно считает загруженные вопросы. `progress: 68/32/...` — демонстрационные поля, не пользовательские достижения. Тема физиологии называется «Нервная система», но два вопроса относятся к сердцу и газообмену: классификацию должен подтвердить медицинский редактор. Не исправлять содержание автоматически.
+Фактический банк: **4 дисциплины/теста, 10 вопросов** — anatomy: 5, physiology: 3, neuro: 1, histology: 1. Строки `meta` обещают 20/15/25/10 вопросов, но эти числа не соответствуют массивам; текущий каталог правильно считает загруженные вопросы. `progress: 68/32/...` — демонстрационные поля, не пользовательские достижения. Тема физиологии называется «Нервная система», но два вопроса относятся к сердцу и газообмену: классификацию может уточнить уполномоченный редактор; это не отдельный обязательный шаг согласования публикации. Не исправлять содержание автоматически.
 
 ### 2.2. Экраны, состояния и сценарии
 
@@ -81,7 +83,7 @@
 
 `TelegramPlatformAdapter` и `useTelegramBackButton` уже владеют init/dispose, единственным callback возврата, fullscreen/viewport/safe-area, подтверждением Telegram-контекста и browser fallback. Это UI-платформенная логика: **Backend не рассчитывает CSS safe-area, не управляет BackButton и не заменяет AppShell**. Присутствие SDK или UI-признак Telegram-контекста не является серверной авторизацией.
 
-Проверены существующие unit-наборы: presentation, statistics, achievements, topic-summary, library-data, question-review, ux82, telegram-platform, zoom-lock; UI-скрипты включают `ui81/82/83`, `scrollbars832`, `viewport` и предыдущие регрессионные сценарии. Они не доказывают корректность будущего Backend. В рамках документа тесты приложения не запускались: исполняемый код не меняется.
+Проверены существующие unit-наборы: presentation, statistics, achievements, topic-summary, library-data, question-review, ux82, telegram-platform, zoom-lock; UI-скрипты включают `ui81/82/83`, `scrollbars832`, `viewport` и предыдущие регрессионные сценарии. Они не доказывают корректность будущего Backend. При первоначальном аудите тесты Frontend не запускались. Проверки Backend и текущей редакции политики описаны в соответствующих отчётах в backend/.
 
 ## 3. Архитектура и эксплуатационный размер
 
@@ -199,22 +201,24 @@ erDiagram
 | disciplines | id, slug, title, icon_key, color_token, position, status | UNIQUE slug; color_token из существующих токенов; index(status,position,id) |
 | topics | id, discipline_id, slug, title, position, status, access_policy_id nullable | UNIQUE(discipline_id,slug); index(discipline_id,status,position,id) |
 | test_definitions | id, topic_id, slug, title, exam_duration_seconds, question_limit nullable, selection_policy, policy_version, internal_difficulty nullable, status | UNIQUE(topic_id,slug); CHECK duration>0, limit>0 если задан; MVP selection_policy=ordered_all; counts вычислять по доступному банку |
-| questions | id, external_source, external_id nullable, current_revision_id nullable, archived_at | UNIQUE(external_source,external_id) для непустого source key; FK current_revision на редакцию этого же question, не чужого |
-| question_revisions | id, question_id, revision_number, kind, text, explanation nullable, source_id nullable, source_reference, source_page nullable, created_by, medical_review_by, reviewed_at, status, normalized_search_text, fingerprint | UNIQUE(question_id,revision_number); UNIQUE(question_id,id) для составных FK; kind single_choice/multiple_choice; index(question_id,status). Explanation хранится, но не возвращается текущему UI |
+| questions | id, external_source, external_id nullable, current_revision_id nullable, archived_at | UNIQUE(external_source,external_id) для ingestion namespace + внешнего ID; external_source не является обязательным библиографическим source_id; FK current_revision на редакцию этого же question, не чужого |
+| question_revisions | id, question_id, revision_number, kind, text, explanation nullable, source_id nullable, source_reference nullable, source_page nullable, created_by, medical_review_by nullable (legacy), reviewed_at nullable (legacy), status, normalized_search_text, fingerprint | UNIQUE(question_id,revision_number); UNIQUE(question_id,id) для составных FK; kind single_choice/multiple_choice; index(question_id,status). Explanation хранится, но не возвращается текущему UI |
 | question_options | id UUID, revision_id, position, code, text, is_correct | PK id; UNIQUE(revision_id,id), UNIQUE(revision_id,position), UNIQUE(revision_id,code); position>=0; immutable после публикации |
 | topic_questions | topic_id, question_id, position | PK(topic_id,question_id); UNIQUE(topic_id,position); index(question_id). Редакция выбирается через current_revision_id и фиксируется при старте попытки |
 | notes | id, discipline_id, topic_id nullable, slug, current_revision_id nullable, position, status, access_policy_id nullable | UNIQUE(discipline_id,slug); FK topic должен принадлежать discipline; index(discipline_id,status,position,id) |
 | note_revisions | id, note_id, revision_number, title, sanitized_body nullable, asset_id nullable, source_id nullable, source_reference, created_by, medical_review_by, reviewed_at, status | UNIQUE(note_id,revision_number); CHECK body или asset задан; опубликованная редакция immutable |
-| content_sources | id, slug, title, attribution, license_reference, evidence_asset_id nullable, reviewed_by, reviewed_at | UNIQUE slug; источник/лицензия сохраняются независимо от TTL временного импорта; FK из revisions |
+| content_sources | id, slug, title, attribution, license_reference nullable, evidence_asset_id nullable, reviewed_by, reviewed_at | UNIQUE slug; необязательные сведения о происхождении, без approval/licensing gate для вопросов; FK из revisions и исторические данные сохраняются |
 | assets | id, storage_key, sha256, media_type, byte_size, status, created_by | UNIQUE storage_key; byte_size>0; приватный volume вне public; загрузки в quarantine до проверки |
 | legacy_mappings | entity_type, legacy_id, discipline_id/topic_id/test_definition_id/question_id (nullable typed FK) | PK(entity_type,legacy_id); CHECK: заполнен ровно один FK, соответствующий entity_type; отдельные partial UNIQUE по каждому target FK. Нельзя ссылаться на несуществующий общий UUID |
 | catalog_state | id singleton PK, version bigint, changed_at | Одна строка; увеличение version при публикации/архивировании. Не пользовательская настройка |
-| import_jobs | id, asset_id, source_sha256, template_version, status, created_by, approved_by nullable, counts, report_asset_id nullable, job_id | index(created_by,created_at); повтор файла возвращает существующий dry-run либо явную новую ревизию задания, не повторно публикует |
+| import_jobs | id, asset_id, source_sha256, template_version, status, created_by, confirmed_by nullable, confirmed_at nullable, confirmation_fingerprint nullable, counts, report_asset_id nullable, job_id | index(created_by,created_at); повтор файла возвращает существующий dry-run либо явную новую ревизию задания, не повторно публикует |
 | import_rows | id, import_job_id, source_position, external_key, normalized_payload, fingerprint, validation_errors, target_question_id nullable, applied_revision_id nullable, status | UNIQUE(import_job_id,source_position); index(import_job_id,status); сырой текст только в закрытом staging с TTL |
 
-**Публикационные инварианты:** single_choice имеет минимум 2 варианта и ровно один верный; multiple_choice — минимум 2 варианта и минимум один верный. Текущий движок не поддерживает multiple_choice, поэтому такие вопросы можно подготовить в draft, но нельзя публиковать в тестовый пул текущего клиента. Межстрочное число правильных вариантов и неизменяемость опубликованных редакций проверяются сервисом и deferred constraint trigger в БД; обычный CHECK не может посчитать дочерние строки. Published-переход требует медицинского reviewer и отсутствия ошибок. current_revision_id ссылается только на опубликованную редакцию того же объекта. При правке создаются новые option_id; старые не переиспользуются для другого текста.
+**Публикационные инварианты вопросов:** single_choice имеет 2–8 вариантов и ровно один верный; multiple_choice — минимум 2 варианта и минимум один верный. Текущий движок не поддерживает multiple_choice, поэтому такие вопросы можно подготовить в draft, но нельзя публиковать в тестовый пул текущего клиента. Межстрочное число правильных вариантов и неизменяемость опубликованных редакций проверяются сервисом и deferred constraint trigger в БД; обычный CHECK не может посчитать дочерние строки. Публикация вопроса требует структурной валидности, права content.publish, свежей MFA и явного действия пользователя; совпадение publisher/creator разрешено. source_id/source_reference/source_page и license_reference необязательны, отдельный medical reviewer/approval не требуется. Старые medical_review_by/reviewed_at сохраняются как исторические поля и не заполняются фиктивным самоодобрением. current_revision_id ссылается только на опубликованную редакцию того же объекта. При правке создаются новые option_id; старые не переиспользуются для другого текста.
 
 Поиск MVP сохраняет семантику Frontend: нормализация + AND вхождений слов. Для небольшого банка достаточно ограниченного ILIKE по bind-параметрам внутри темы; при росте — `pg_trgm` GIN по normalized_search_text, после EXPLAIN ANALYZE. FTS со стеммингом изменит выдачу, поэтому не включать его незаметно. Число вопросов считается из фактических опубликованных и доступных связей, не из `meta`.
+
+Для вопросов source_id/source_reference/source_page и license_reference необязательны и могут быть NULL. medical_review_by/reviewed_at сохраняют историческое значение, не требуются для новых публикаций. Withdrawal источника-метаданных не снимает вопросы с публикации: доступность определяется статусом вопроса/редакции и родителей. Для конспектов отдельные existing review/publishing правила сохраняются; изменения политики этого раздела относятся к вопросам тестов.
 
 ### 5.4. Попытки, статистика, награды
 
@@ -289,11 +293,11 @@ Ed25519-проверка для третьих сторон не требует�
 | Роль | Права |
 |---|---|
 | student | Только собственные попытки, статистика, настройки и доступный опубликованный контент |
-| content_editor | Черновики вопросов/конспектов, загрузка/dry-run импорта, просмотр ошибок |
-| content_reviewer | Медицинская проверка и публикация; для массового импорта reviewer отличается от автора |
+| content_editor | Уполномоченный редактор: черновики, загрузка/dry-run и ошибки; в 3b.3 — публикация собственных структурно корректных вопросов по явному действию, без второго reviewer |
+| content_reviewer | Существующая совместимая staff-роль с разрешениями по серверной матрице; её участие в публикации вопросов необязательно. Она не заменяет admin confirmation импортированного набора |
 | support | Ограниченный просмотр статуса попытки/заказа по обращению, без bot token, ключей и массового экспорта персональных данных |
 | billing_admin | Сверка платежей, запрос возврата, управляемые entitlements; не редактирует медицинские ответы автоматически |
-| admin | Роли, блокировки, системные настройки; каждое привилегированное действие аудируется |
+| admin | Роли, блокировки, системные настройки и публикация вопросов; явное подтверждение валидного импортированного набора. Можно публиковать собственные вопросы. Каждое действие аудируется |
 
 Сервер проверяет permission и object ownership в каждом endpoint. UUID не является защитой IDOR. Обычный клиент не передаёт user_id для выбора чужих данных. Назначение admin по username, initDataUnsafe, Telegram Premium или Telegram chat admin запрещено. Bootstrap первого admin — одноразовая операторская процедура по проверенному числовому Telegram ID вне репозитория.
 
@@ -364,7 +368,7 @@ Daily recommendation: GET `/me/daily-topic` использует серверн�
 
 Предлагаемая MVP-политика после утверждения: награда только за первое серверно подтверждённое правильное решение **логического question_id** пользователем. Award key `first_correct:{question_id}` уникален для user, не включает revision или progress_epoch: новая редакция, сброс профиля, повтор теста и повтор webhook не дают заново ту же награду. Сумма — из включённого xp_rule_version, конкретное число согласовать. Не начислять XP за открытие страницы, API-вызов, skip, abandoned или клиентский score. Будущее интервальное повторение/дневные бонусы — отдельные versioned правила и отдельное согласование.
 
-Ledger immutable; общий balance и уровень вычисляются из него. Финализированный attempt и award keys обеспечивают идемпотентность. Исправление медицинского ключа не переписывает исторический результат/ledger автоматически: решение reviewer+admin, компенсирующая запись с уникальной ссылкой и audit. Приложение не принимает `/xp/add` от студента. До утверждения лестницы levels не возвращать фиктивный «Новичок / 100 XP до следующего».
+Ledger immutable; общий balance и уровень вычисляются из него. Финализированный attempt и award keys обеспечивают идемпотентность. Исправление медицинского ключа не переписывает исторический результат/ledger автоматически: явное решение администратора, компенсирующая запись с уникальной ссылкой и audit. Приложение не принимает `/xp/add` от студента. До утверждения лестницы levels не возвращать фиктивный «Новичок / 100 XP до следующего».
 
 ### 8.3. Девять достижений
 
@@ -398,7 +402,7 @@ DTO: locked/unlocked/not_configured, title/caption/icon_key, granted_at nullable
 
 Ошибка: `error.code`, `message` для пользователя, `details` без секретов, `request_id`. HTTP: 401 нет/истекла сессия; 403 нет права; 404 чужой/отсутствующий объект без раскрытия существования; 409 бизнес-конфликт/версия/идемпотентность; 412 отсутствующий или неприемлемый If-Match по контракту; 422 некорректные поля/неподдерживаемый question kind; 429 + Retry-After; 503 временная недоступность. Стандартный FastAPI 422 нормализуется к этому формату.
 
-Idempotency-Key обязателен на start/submit/advance/skip/finish/abandon, reset, создание заказа, import publish, refund и manual grant. Ключ — случайный UUID клиента на **одно логическое действие**, повтор отправляет тот же ключ и body. Повтор с иным canonical request_hash → `409 IDEMPOTENCY_KEY_REUSED`. Ответы после успешной транзакции воспроизводят тот же результат/ID, а не повторяют действие. Кэш ключей — предложено 7 дней, финансовые/награды дополнительно защищены постоянными бизнес-UNIQUE и не зависят от этого TTL. Идемпотентные PUT/DELETE Favorites не требуют отдельного ключа.
+Idempotency-Key обязателен на start/submit/advance/skip/finish/abandon, reset, создание заказа, question/import publish, refund и manual grant. Ключ — случайный UUID клиента на **одно логическое действие**, повтор отправляет тот же ключ и body. Повтор с иным canonical request_hash → `409 IDEMPOTENCY_KEY_REUSED`. Ответы после успешной транзакции воспроизводят тот же результат/ID, а не повторяют действие. Кэш ключей — предложено 7 дней, финансовые/награды дополнительно защищены постоянными бизнес-UNIQUE и не зависят от этого TTL. Идемпотентные PUT/DELETE Favorites не требуют отдельного ключа.
 
 Для персональных ответов и ключей справочника `Cache-Control: no-store`; CDN не кэширует session/result/review. Публичный каталог без пользовательских полей может иметь ETag по catalog_version. Клиентские кэши разделяются по user/session, очищаются на logout; правильные ответы не помещаются в service worker/precache. В текущем аудите механизм SW-кэширования не обнаружен; не добавлять его для защищённых данных.
 
@@ -487,13 +491,14 @@ GET `/topics` без discipline_id обеспечивает существующ
 | Методы и путь | Роль | Назначение |
 |---|---|---|
 | POST `/admin/auth/step-up`; DELETE `/admin/auth/step-up` | E/R/B/A | Подтверждение MFA/завершение привилегированной сессии; enrollment и recovery — отдельная защищённая операторская процедура первого этапа admin |
-| GET/POST `/admin/disciplines`; GET/PATCH/DELETE `/admin/disciplines/{id}` | E/R | Каталог и архивирование; публикация по reviewer permission |
+| GET/POST `/admin/disciplines`; GET/PATCH/DELETE `/admin/disciplines/{id}` | E/R | Каталог и архивирование; отдельное действие публикации по соответствующему permission |
 | GET/POST `/admin/topics`; GET/PATCH/DELETE `/admin/topics/{id}` | E/R | Темы и проверенные связи с дисциплиной |
 | GET/POST `/admin/test-definitions`; GET/PATCH/DELETE `/admin/test-definitions/{id}` | E/R | Режимы/время/порядок/внутренняя сложность; не изменять активные snapshots |
+| GET/POST `/admin/sources`; GET/PATCH/DELETE `/admin/sources/{id}` | E/A, R read | Необязательные метаданные источников. Создание source не является предварительным шагом создания вопроса |
 | GET/POST `/admin/questions`; GET `/admin/questions/{id}` | E/R | Поиск и создание draft с options/source; создание не публикует |
 | GET/POST `/admin/questions/{id}/revisions`; GET/PATCH `/admin/question-revisions/{id}` | E/R | Новая редакция/правка только draft; просмотр истории |
-| POST `/admin/question-revisions/{id}/review`; POST `.../{id}/publish`; POST `.../{id}/withdraw` | R | Проверка, публикация, медицинское изъятие с причиной и изменением catalog_version |
-| PUT/DELETE `/admin/topics/{topic_id}/questions/{question_id}` | E/R | Управляемая связь/position; перестановка публикуется reviewer, не меняет старые attempts |
+| POST `/admin/question-revisions/{id}/publish`; POST `.../{id}/withdraw`; POST `.../{id}/restore` | E/A (R по совместимому permission) | В 3b.3: явная публикация валидного вопроса, withdraw/restore с audit и catalog_version; отдельного /review нет. Для editor действует ownership, admin может публиковать свои/доступные чужие drafts |
+| PUT/DELETE `/admin/topics/{topic_id}/questions/{question_id}` | E/R | Управляемая связь/position; перестановка требует publish permission и явного действия, не меняет старые attempts |
 | GET/POST `/admin/notes`; GET/PATCH/DELETE `/admin/notes/{id}` | E/R | Metadata и архивирование конспекта |
 | GET/POST `/admin/notes/{id}/revisions`; GET/PATCH `/admin/note-revisions/{id}` | E/R | Черновик материала, закрытый asset, sanitize |
 | POST `/admin/note-revisions/{id}/review`; POST `.../{id}/publish`; POST `.../{id}/withdraw` | R | Versioned публикация, без автоматической генерации медицинского текста |
@@ -501,7 +506,7 @@ GET `/topics` без discipline_id обеспечивает существующ
 | GET `/admin/import-templates/{format}` | E/R | Версионированные XLSX/DOCX-шаблоны и инструкция |
 | GET/POST `/admin/imports`; GET `/admin/imports/{id}` | E/R | Задание dry-run по загруженному asset/template_version, состояние/счётчики |
 | GET `/admin/imports/{id}/rows`; GET `.../{id}/report` | E/R | Ошибки/предпросмотр/скачивание отчёта без публикации |
-| POST `/admin/imports/{id}/approve`; POST `.../{id}/publish`; POST `.../{id}/cancel` | R | Утверждение и фоновая публикация; отмена ещё не применённых строк |
+| POST `/admin/imports/{id}/publish`; POST `.../{id}/cancel` | A для publish; E/A для своих dry-run/cancel | В 3b.3: явное admin confirmation после успешного dry-run, затем фоновая публикация; отдельного /approve нет |
 | GET `/admin/users`; GET/PATCH `/admin/users/{id}` | S/A | Support — ограниченный read; block/unblock — admin с причиной |
 | PUT/DELETE `/admin/users/{id}/roles/{code}` | A | Выдача/снятие ролей, запрет самовольной эскалации и удаления последнего admin |
 | GET `/admin/attempts/{id}` | S/A | Диагностика по обращению, ограниченный доступ к ответам; без возможности «записать клиентский score» |
@@ -617,22 +622,22 @@ Exam current item — **нет даже nullable correctness-полей**, чт�
 
 MVP: `.xlsx` и структурированный `.docx`. Старые `.xls/.doc`, `.xlsm`, произвольные архивы и PDF/OCR не импортируются автоматически; предоставить понятную ошибку и инструкцию доверенной конвертации вне VPS. Не запускать Office/LibreOffice и макросы внутри API. Excel — предпочтительный массовый формат; Word поддерживается только по утверждённому шаблону, не эвристикой «угадать, где ответ».
 
-Шаблон XLSX: source_id, discipline_slug, topic_slug, question_external_id, question_type, question_text, option_A…option_H, correct_options (`A` или явный список), explanation необязательно, source_reference, source_page, license_reference. Опциональные новые поля добавляются только с template_version. Пустой ключ ответа, неизвестный код или multiple-choice для текущего движка — validation issue, не автоматически «вариант А».
+Шаблон XLSX: discipline_slug, topic_slug, question_external_id, question_type, question_text, option_A…option_H и явные correct_options (`A` или список) описывают структуру вопроса. source_id, source_reference, source_page, license_reference и explanation — необязательные столбцы; их можно не включать в файл, оставить пустыми или передать null. Отсутствие происхождения/лицензии не является ошибкой или блокирующим предупреждением. Версионирование шаблонов сохраняется; неизвестные коды/пустые варианты/отсутствующий правильный ключ являются ошибкой структуры.
 
-DOCX: заголовки дисциплины/темы и таблицы с явными колонками «Вопрос», «Варианты с кодами», «Правильные коды», «Источник», необязательное «Объяснение». Цвет/жирный шрифт не считается достаточным ключом. Вопросы без однозначной структуры остаются ошибками staging для ручной правки. Не генерировать медицинские ответы/объяснения и не менять смысл при нормализации.
+DOCX: структурированные таблицы с явными колонками «Вопрос», «Варианты с кодами», «Правильные коды» и идентификатором строки; дисциплина/тема задаются заголовком/контекстом импорта. «Источник», «Страница», «Лицензия», «Объяснение» необязательны. Цвет/жирность не заменяют ключ ответа. Никакого угадывания ответов, генерации медицинского текста или автоматической публикации после загрузки.
 
 ### 11.2. Pipeline
 
-1. Авторизованный editor загружает файл в quarantine; фиксируются SHA-256, размер, MIME/magic, template_version, источник и лицензия.
+1. Авторизованный editor загружает файл в quarantine; фиксируются SHA-256, размер, MIME/magic, template_version и выбранная дисциплина/тема. Метаданные источника/лицензии сохраняются только если предоставлены.
 2. Worker проверяет контейнер DOCX/XLSX: лимиты числа ZIP entries и суммарного распакованного размера, отсутствие path traversal, внешних relationships/embedded executables, макросов. Формулы Excel отклоняются, не исполняются и не принимаются по непроверенному cached value.
 3. Парсинг вне API, XLSX read_only streaming. Первичные лимиты для проверки на VPS: upload≤10 MB, unpacked≤50 MB, до 5 000 строк на dry-run, batch≤100 при публикации, timeout парсера≤60 секунд и memory limit. До замеров большие DOCX отклонять; ошибка resource limit не должна создавать бесконечный retry/OOM API.
 4. Staging нормализует пробелы/NFC, связывает **явные** discipline/topic, сохраняет порядок вариантов и преобразует коды в стабильные option identities. Не создавать неизвестные дисциплины молча. Увеличенные лимиты возможны только после профилирования.
-5. Валидатор: обязательные поля, минимум 2 непустых варианта, уникальные коды, правильные коды входят в варианты, single/multiple инварианты, допустимые размеры текста, отсутствие HTML/вредоносных ссылок, конфликт внешних ID, источник/лицензия. Медицинская достоверность — отдельное решение reviewer, не «успешная Pydantic-валидация».
-6. Дедупликация: стабильный (source, external_id); fingerprint нормализованного содержания + вариантов + явно указанного ключа ищет возможные дубли. Совпадение текста без источника не повод автоматически слить два вопроса. Повтор исходного файла не публикует новые редакции заново.
-7. Dry-run выдаёт report с координатой строки/таблицы, action=create/update/unchanged/conflict, errors/warnings. Вопросы с изменённым ключом выделяются reviewer отдельно. Публикация без просмотра отчёта и медицинского approval запрещена.
-8. Второй reviewer утверждает набор. Job публикует валидные подтверждённые строки батчами по 100: каждый batch атомарен, меняет pointers редакций и catalog_version. **Весь большой import не объявляется all-or-nothing**: отчёт явно показывает applied/pending/failed. Cancel останавливает неприменённые строки, не откатывает уже опубликованную историю.
+5. Валидатор: обязательные поля, минимум 2 непустых варианта, уникальные коды, правильные коды входят в варианты, single/multiple инварианты, допустимые размеры текста, отсутствие HTML/вредоносных ссылок, конфликт внешних ID и допустимый формат. Необязательные метаданные проверяются по типу/размеру только при наличии. Проверка не генерирует правильные ответы или объяснения; второго согласования reviewer нет.
+6. Дедупликация: стабильный (ingestion_namespace, external_id), где namespace выводится сервером из выбранной темы/банка и не требует citation source_id; fingerprint нормализованного содержания + вариантов + явно указанного ключа ищет возможные дубли. external_source обозначает namespace загрузки, а не обязательный библиографический источник. Совпадение текста само по себе не является основанием молча слить вопросы. Повтор исходного файла не публикует новые редакции заново.
+7. Dry-run выдаёт report с координатой строки/таблицы, action=create/update/unchanged/conflict, errors/warnings. Изменённый ключ явно выделяется в отчёте. Наличие ошибок блокирует публикацию набора до исправления и повторного dry-run; строки не пропускаются молча. Отсутствующие citation/license поля не создают ошибку. Успешный dry-run оставляет набор в draft/validated и ничего не публикует.
+8. Администратор со свежей MFA явно подтверждает публикацию набора: confirm=true, ожидаемый hash dry-run, file SHA-256/template_version и Idempotency-Key. Собственный набор подтверждать разрешено. content.import.publish доступен admin; editor может публиковать собственные отдельные вопросы по content.publish. Отдельных approve/review шагов нет. Worker получает зафиксированную сервером команду (без OTP/initData), привязанную к конкретному проверенному набору; изменение staging требует нового подтверждения. Job публикует подтверждённые валидные строки батчами не более 100: каждый batch атомарен, меняет pointers редакций и catalog_version. **Весь большой import не объявляется all-or-nothing**: отчёт явно показывает applied/pending/failed. Cancel останавливает неприменённые строки, не откатывает уже опубликованную историю.
 9. Повтор job использует import_rows.applied_revision_id и fingerprints, не создаёт новые копии. Ошибки transient повторяются с backoff и max_attempts; ошибки содержания не повторяются автоматически.
-10. Откат ошибочной публикации — медицинское withdraw либо новая утверждённая редакция/возврат pointer на прежнюю допустимую редакцию с audit и catalog_version. Старые attempts продолжают ссылаться на использованные revisions. История не переписывается автоматически.
+10. Откат ошибочной публикации — медицинское withdraw либо новая структурно корректная явно опубликованная редакция/возврат pointer на прежнюю допустимую опубликованную редакцию с audit и catalog_version. Старые attempts продолжают ссылаться на использованные revisions. История не переписывается автоматически.
 
 Долгосрочно файлы больших банков хранить отдельно от приложения; первоначально закрытый volume с offsite backup достаточно. Quarantine/raw staging имеют согласованный TTL (предложение 30 дней), опубликованные source references и журнал импорта сохраняются. Отчёты CSV/XLSX экранируют значения, начинающиеся с `=`, `+`, `-`, `@`, чтобы скачивание отчёта не стало formula injection.
 
@@ -688,7 +693,7 @@ Archive failure может заполнить диск WAL; мониторить
 | Rewards/statistics | XP first-correct по logical ID после retry/revision/reset; ledger компенсация; достижения один раз; average по долям, DST/полночь/понедельник, смена timezone, пустая история и all-skipped |
 | Exam secrecy | Рекурсивный анализ всех exam DTO/OpenAPI/ошибок на correctness; reference lock; нет ключей в production JS; result другого пользователя недоступен |
 | Payments | Secret header, duplicate/out-of-order webhook, 2 платежа order, неправильная сумма/user/currency, timeout invoice/refund, поздний success, pending invoiceClosed, precheckout<10s, reconciliation, refund без двойного revoke |
-| Imports | Шаблон XLSX/DOCX, повтор файла, конфликт ID/ключа, ZIP bomb/path traversal/external rel, formulas/macros, лимит памяти, missing answers, медицинский approve, частичный publish/cancel/retry |
+| Imports | Шаблон XLSX/DOCX, повтор файла, конфликт ID/ключа, ZIP bomb/path traversal/external rel, formulas/macros, лимит памяти, missing answers, отсутствие source/license, own publication, отказ без MFA/permission/admin confirmation, частичный publish/cancel/retry |
 | API contracts | OpenAPI schema snapshot, error envelope, nullable, cursor/query/version, CSRF/cookies, ownership всех /me/resources, access revocation, поддерживаемые kind |
 | Frontend integration | Существующие unit и Playwright; mock HTTP по контракту + реальный test API; нет параллельного клиентского score/ключей в exam |
 | Operations | Fresh/upgrade миграции, restart API/worker в середине операции, DB unavailable, offsite restore/PITR, disk pressure, нагрузка на 1 CPU/2 GB |
@@ -706,8 +711,11 @@ Mock Chromium не доказывает работоспособность на�
 | 0. Зафиксировать решения | Этот аудит; bot/domain/timezone/guest/content ownership; утвердить OpenAPI skeleton | Нет предположений о существующем Backend; согласованы P0-вопросы раздела 16 и mapping legacy IDs |
 | 1. Изолированный foundation | Новый репозиторий, Python toolchain, settings/secrets, FastAPI, PostgreSQL, Alembic, error/log/idempotency primitives; только dev/test Compose | CI lint/type checks/unit + PG16 migrations; /live и /ready; доказана изоляция от main/Preview/старой БД; измерен baseline RAM |
 | 2. Identity/RBAC | HMAC, сессии, CSRF, user/preferences, bootstrap admin; зависит от 1 | Auth/replay/IDOR/roles негативные тесты; реальный Telegram test bot + iOS cookie/reopen; без токенов в логах |
-| 3a. Read-only content | Discipline/topic/test, immutable revisions/options, public metadata + protected reference; зависит от 1/2 | 10 исходных вопросов перенесены только после проверки; count=фактический; пустые notes честные; отдельный exam-safe DTO |
-| 3b. Импорт и medical admin | MFA, staging XLSX, затем DOCX, report/approval/publish; зависит от 3a | Dry-run без публикации; повтор/ошибка не дублируют; rollback withdraw проверен; ресурсные лимиты выдержаны |
+| 3a. Read-only content | Discipline/topic/test, immutable revisions/options, public metadata + protected reference; зависит от 1/2 | 10 исходных вопросов сохраняются draft до явного действия публикации; count фактический; пустые notes честные; отдельный exam-safe DTO |
+| 3b.1. MFA/admin | TOTP, короткий grant, draft API/ownership/If-Match/audit; реализовано | Negatives MFA/RBAC/IDOR/concurrency, PG16 migrations/CI; публикационные HTTP действия пока закрыты |
+| 3b.2. Staging/import | Защищённый XLSX/DOCX, optional source/license, DB worker, dry-run/report/export | 10 MB/50 MB/5000 строк/60 sec, ZIP/formula/spoofing/cancel/restart tests; никакой публикации от успешного parse |
+| 3b.3. Explicit publish | Публикация своих вопросов editor/admin; набор — по явному admin confirmation, без второго reviewer | MFA/permission/ownership; ошибки структуры блокируют; idempotency, batches≤100, retry/partial failure, immutable history, withdraw/restore |
+| Политика 0005 | Forward migration и DTO optional provenance; обновлённые правила 3b.2–3b.3 | 0001–0004 неизменны; source/reviewer gate для вопросов снят; нет автоматической публикации данных |
 | 4a. Learning attempts | Start/snapshot/submit/advance/skip/result/review/abandon; зависит от 2/3a | Полная последовательность совпадает с UI; concurrent retry не удваивает действие; snapshots сохраняются после правок |
 | 4b. Exam/resume | Draft, server deadline, finalizer, expiry/reconnect; зависит от 4a | Нет answer key до finish; фон/timeout/2 вкладки/restart; all-skipped и late draft; финализация один раз |
 | 5. История/статистика | Агрегаты, day/TZ, topic summary, daily recommendation, четыре вычислимых достижения; зависит от 4 | Average/ever_wrong semantics совпадают; история переживает reload; rebuild не выдаёт награды второй раз; остальные 5 достижений locked |
@@ -750,7 +758,7 @@ Mock Chromium не доказывает работоспособность на�
 |---|---|---|
 | P0 | Подтверждены ли владение @medexapp, числовой bot ID и отдельный test bot? | Получить через владельца без помещения токена в Git; блокирует реальную auth/payments проверку |
 | P0 | Где создаётся новый Backend, какие отдельные dev/staging hostname/DB/volumes? Хватит ли ресурсов при соседстве сервисов? | Отдельный репозиторий/изолированный stack; замер свободной RAM/диска без изменения старого Backend; этап 1 |
-| P0 | Кто медицинский reviewer и каковы права на исходный банк/Word/Excel? | Назначить ответственного, подтвердить лицензии и классификацию физиологии; блокирует публикацию реального банка |
+| P0 | Кто получает admin/content_editor и подтверждает публикацию набора? | Контролируемое назначение ролей и MFA/runbook; обязательный второй reviewer и обязательные источники/лицензии для вопросов отменены |
 | P0 | Нужен ли браузерный guest-mode и Telegram Web iframe в первом релизе? | Первый scope — iPhone Mini App + публичный metadata в Safari; прочие входы только после согласования transport/login; этап 2/6 |
 | P0 | Приемлемы ли окно initData 5 минут и строгий replay с возможным повторным открытием при неудачном login? | Проверить на реальном iPhone; согласовать UX до фиксации auth API |
 | P0 | Сохранение активной попытки, одна попытка на пользователя, TTL обучения и учёт фонового времени? | Предлагается server resume + одна active, exam без паузы, wall-clock practice; этап 4 |
@@ -759,7 +767,7 @@ Mock Chromium не доказывает работоспособность на�
 | P1 | Что делает «Сбросить прогресс» после серверной интеграции? | Epoch reset учебной видимости, ledger/платежи неизменны; согласовать отображение XP/достижений и срок хранения старой истории до активации кнопки |
 | P1 | Размер XP, лестница уровней, состав anatomy/clinical/pharmacy блоков, memory/finish условия? | Пока not_configured/locked; никакой генерации значений. Этапы 7/8 |
 | P1 | Какие материалы действительно входят в Premium, цена/срок/возвраты/поддержка/продление? | Сначала реальный продукт/terms; MVP разовый доступ без автопродления и stacking; этап 9b |
-| P1 | Кто имеет admin/MFA, кто рассматривает платежные обращения? | Развести медицинского reviewer и billing; bootstrap/recovery/runbook до admin release |
+| P1 | Кто имеет admin/MFA, кто рассматривает платежные обращения? | Развести publishing и billing permissions; bootstrap/recovery/runbook до admin release |
 | P1 | Требуемые RPO/RTO, провайдер offsite backup, бюджет/ретенция персональных и финансовых данных? | До реальных результатов restore test, до оплаты PITR; цели из раздела 12 проверить измерением |
 | P2 | Нужны ли несколько правильных ответов в действующем тестовом движке, файлы/изображения в вопросах, маршруты и уведомления? | Не включать автоматически: нынешние интерфейсы и правила это полностью не поддерживают; отдельные ТЗ |
 

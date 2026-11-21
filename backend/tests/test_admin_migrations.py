@@ -35,7 +35,6 @@ def test_admin_downgrade_preserves_content_and_identity(
                         "question_revisions",
                         "question_options",
                         "content_sources",
-                        "catalog_state",
                     )
                 }
         finally:
@@ -46,4 +45,5 @@ def test_admin_downgrade_preserves_content_and_identity(
     assert asyncio.run(snapshot()) == before
     command.upgrade(alembic_config, "0004_admin")
     assert asyncio.run(snapshot()) == before
+    command.upgrade(alembic_config, "head")
     command.check(alembic_config)
