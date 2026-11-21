@@ -7,7 +7,7 @@ on:
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
       - .github/workflows/medexa-backend.yml
   push:
-    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import, refactor/medexa-publication-policy, feature/medexa-import-staging, feature/medexa-content-publishing, feature/medexa-learning-attempts]
+    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import, refactor/medexa-publication-policy, feature/medexa-import-staging, feature/medexa-content-publishing, feature/medexa-learning-attempts, feature/medexa-exam-attempts]
     paths:
       - backend/**
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
@@ -76,3 +76,6 @@ jobs:
           docker run --rm --network none --entrypoint python medexa-foundation-ci:${{ github.sha }} -c "from pathlib import Path; import app.main; assert not Path('/app/tests').exists(); assert not Path('/app/scripts').exists()"
           docker run --rm --network none -i --entrypoint python medexa-foundation-ci:${{ github.sha }} - < scripts/runtime_smoke.py
           docker run --rm --network host --read-only --tmpfs /var/lib/medexa-imports:mode=0700,uid=10001,gid=10001,size=16m --env MEDEXA_ENVIRONMENT --env MEDEXA_DB_HOST --env MEDEXA_DB_PORT --env MEDEXA_DB_NAME --env MEDEXA_DB_USER --env MEDEXA_DB_PASSWORD --env MEDEXA_IMPORT_STORAGE_DIR=/var/lib/medexa-imports --entrypoint python medexa-foundation-ci:${{ github.sha }} -m app.publishing.worker --with-imports --once
+
+          docker run --rm --network host --read-only --env MEDEXA_ENVIRONMENT --env MEDEXA_DB_HOST --env MEDEXA_DB_PORT --env MEDEXA_DB_NAME --env MEDEXA_DB_USER --env MEDEXA_DB_PASSWORD --entrypoint python medexa-foundation-ci:${{ github.sha }} -m app.attempts.finalizer --once
+          docker run --rm --network host --read-only --env MEDEXA_ENVIRONMENT --env MEDEXA_DB_HOST --env MEDEXA_DB_PORT --env MEDEXA_DB_NAME --env MEDEXA_DB_USER --env MEDEXA_DB_PASSWORD -i --entrypoint python medexa-foundation-ci:${{ github.sha }} - < scripts/exam_runtime_smoke.py

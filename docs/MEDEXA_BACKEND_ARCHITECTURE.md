@@ -892,3 +892,21 @@ partial UNIQUE active/user, permanent receipt и deferred frozen-result guards �
 Публикация/withdraw/restore не меняют начатый snapshot; пользовательские часы не
 принимаются. Learning idle TTL и Exam timer/finalizer не включены. Старые 0001–0007
 не переписаны; destructive downgrade при наличии learning history запрещён.
+
+### Реализованный срез 4b (0009_exam_attempts)
+
+Exam использует snapshot и ownership/CAS/idempotency из 4a. До финализации ответы
+находятся в exam_answers без публичной correctness; после — immutable attempt_responses
+и результат. Поддерживаются выбор N без повторов (первые N в стабильном порядке),
+редактирование/очистка draft, переход на любую позицию и resume. Полный контракт:
+[backend/EXAM.md](../backend/EXAM.md).
+
+Серверная политика v1: test_definition.exam_duration_seconds; для topic/discipline
+60 секунд на выбранный вопрос, максимум сутки. Клиент не задаёт deadline/duration.
+Timeout — completed/finish_reason=timeout, finalized_at=deadline. Отдельный DB-backed
+finalizer с poll 2с и user→attempt lock; тот же финализатор вызывается API. Финализация
+атомарна и повторяема после отката/рестарта. Draft, опоздавший за deadline, не учитывается.
+До окончательной фиксации result review и справочные ключи заблокированы; после доступен
+порционный snapshot review. Общая схема и начатые Learning-попытки совместимы с 0008.
+Завершённый результат не переписывается при изменении контента. Сервер не может сохранять
+не переданные клиентом offline-ответы; это отдельный контракт будущей UI-интеграции.

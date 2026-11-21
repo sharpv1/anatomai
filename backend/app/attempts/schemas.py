@@ -15,11 +15,13 @@ from app.admin.schemas import Body
 
 
 class Start(Body):
-    mode: Literal["learning"] = "learning"
+    mode: Literal["learning", "exam"] = "learning"
     kind: Literal["regular"] = "regular"
     discipline_id: UUID | None = None
     topic_id: UUID | None = None
     test_definition_id: UUID | None = None
+
+    question_count: Annotated[int | None, Field(ge=1, le=5000)] = None
 
     @model_validator(mode="after")
     def one_scope(self) -> Self:
@@ -28,6 +30,8 @@ class Start(Body):
             != 1
         ):
             raise ValueError("Select exactly one discipline, topic or test")
+        if self.mode == "learning" and self.question_count is not None:
+            raise ValueError("Question count is available only for Exam")
         return self
 
 
@@ -106,7 +110,7 @@ class LearningResult(Output):
     duration_seconds: Annotated[int, Field(ge=0)]
     started_at: datetime
     finalized_at: datetime
-    finish_reason: Literal["last_question", "user_finish"]
+    finish_reason: Literal["last_question", "user_finish", "timeout"]
 
 
 class AttemptView(Output):
@@ -141,3 +145,75 @@ class AttemptView(Output):
         if self.result is None:
             data.pop("result", None)
         return data
+
+
+class Draft(Body):
+    selected_option_ids: Annotated[list[UUID], Field(max_length=1)]
+
+
+class Navigate(Body):
+    position: Annotated[int, Field(ge=0, le=4999)]
+
+
+class ExamItem(ItemView):
+    state: Literal["draft"] = "draft"
+    selected_option_ids: Annotated[list[UUID], Field(max_length=1)]
+
+
+class ExamView(Output):
+    id: UUID
+    mode: Literal["exam"]
+    status: Literal["in_progress", "completed", "abandoned"]
+    version: Annotated[int, Field(ge=1)]
+    title: str
+    scope: Literal["discipline", "topic", "test"]
+    discipline_id: UUID
+    topic_id: UUID | None
+    test_definition_id: UUID | None
+    total: Annotated[int, Field(ge=1, le=5000)]
+    current_position: int
+    started_at: datetime
+    deadline_at: datetime
+    remaining_seconds: Annotated[int, Field(ge=0)]
+    current_item: ExamItem | None
+    result: LearningResult | None = None
+
+    @model_validator(mode="after")
+    def valid_state(self) -> Self:
+        if (self.status == "completed") != (self.result is not None):
+            raise ValueError("Invalid exam result")
+        if (self.status == "in_progress") != (self.current_item is not None):
+            raise ValueError("Invalid exam cursor")
+        if self.current_item is not None and self.current_item.position != self.current_position:
+            raise ValueError("Item does not match exam cursor")
+        return self
+
+    @model_serializer(mode="wrap")
+    def optional_result(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if self.result is None:
+            data.pop("result", None)
+        return data
+
+
+AttemptDTO = AttemptView | ExamView
+
+
+class ReviewItem(ItemView):
+    selected_option_ids: Annotated[list[UUID], Field(max_length=1)]
+    is_correct: bool | None
+    correct_option_ids: Annotated[list[UUID], Field(min_length=1, max_length=1)]
+    explanation: str | None = None
+
+    @model_serializer(mode="wrap")
+    def optional_explanation(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if self.explanation is None:
+            data.pop("explanation", None)
+        return data
+
+
+class ReviewPage(Output):
+    items: list[ReviewItem]
+    total: int
+    next_offset: int | None

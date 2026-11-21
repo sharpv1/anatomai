@@ -405,6 +405,31 @@ async def question_page(
     return await r.listing(safe, page)
 
 
+async def guard_exam_reference(request: Request) -> None:
+    from app.attempts.exam import expire
+    from app.attempts.models import Attempt
+    from app.identity.dependencies import current_db, current_identity
+
+    db = current_db(request)
+    a = await db.scalar(
+        select(Attempt)
+        .where(
+            Attempt.user_id == current_identity(request).user.id,
+            Attempt.mode == "exam",
+            Attempt.status == "in_progress",
+        )
+        .with_for_update()
+    )
+    if a is not None:
+        now = await db.scalar(select(func.clock_timestamp()))
+        if now is not None and a.deadline_at is not None and now >= a.deadline_at:
+            await expire(db, a)
+        else:
+            raise ApplicationError(
+                "EXAM_REFERENCE_LOCKED", "Разбор доступен после завершения экзамена.", 409
+            )
+
+
 @router.get("/topics/{topic_id}/reference-questions", response_model=Listing[ReferenceQuestionDTO])
 @access("content.read")
 async def reference(
@@ -414,6 +439,7 @@ async def reference(
     limit: QuestionLimit = 30,
     cursor: Cursor = None,
 ) -> Listing[ReferenceQuestionDTO]:
+    await guard_exam_reference(request)
     return cast(
         Listing[ReferenceQuestionDTO],
         await question_page(
@@ -441,6 +467,8 @@ async def safe_questions(
     limit: QuestionLimit = 30,
     cursor: Cursor = None,
 ) -> Listing[ExamQuestionDTO] | Listing[LearningQuestionDTO]:
+    if projection == "learning":
+        await guard_exam_reference(request)
     r = await reader(request)
     s = tests_query()
     definition = (

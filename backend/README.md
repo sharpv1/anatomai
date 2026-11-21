@@ -27,7 +27,7 @@ production-конфигурации или интеграции с React.
 с произвольным actor_id нет. `/live` и `/ready` выбраны согласно заданию этапа 1;
 в архитектурном реестре использовались более длинные `/health/*`.
 
-Текущая head — `0008_learning_attempts`. Источники/лицензии и второй reviewer для вопросов необязательны; новая политика описана в архитектуре и ADMIN.md. Добавлен MFA-gated API медицинских черновиков и
+Текущая head — `0009_exam_attempts`. Источники/лицензии и второй reviewer для вопросов необязательны; новая политика описана в архитектуре и ADMIN.md. Добавлен MFA-gated API медицинских черновиков и
 операторское TOTP enrollment/recovery: [ADMIN.md](ADMIN.md). Импорт/DB worker/CSV reports реализованы в **3b.2**: [IMPORTS.md](IMPORTS.md).
 Явный publish/withdraw/restore реализован в 3b.3: [PUBLISHING.md](PUBLISHING.md); отдельный review вопросов не требуется. Content.md/CONTENT_REPORT.md описывают
 исторический этап 3a; публичные контракты совместимы.
@@ -210,3 +210,5 @@ release commit. Никаких изменений Frontend, production/preview C
 Learning доступен обычному авторизованному пользователю без MFA; чужие attempts
 недоступны даже admin через пользовательские маршруты. Exam/XP/статистика/React
 не добавлены, импорт по-прежнему не публикует автоматически.
+
+Exam Engine 4b: [EXAM.md](EXAM.md), [EXAM_REPORT.md](EXAM_REPORT.md). Для фонового завершения нужен отдельный `python -m app.attempts.finalizer` (dev profile `exams`); API не запускает его автоматически.
