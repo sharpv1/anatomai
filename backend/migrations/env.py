@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.admin import models as admin_models  # noqa: F401 -- metadata
+from app.attempts import models as attempt_models  # noqa: F401 -- metadata
 from app.content import models as content_models  # noqa: F401 -- metadata
 from app.core.config import Settings
 from app.db.base import Base

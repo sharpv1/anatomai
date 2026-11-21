@@ -19,6 +19,7 @@ F = TypeVar("F", bound=Callable[..., object])
 SELF_PERMISSIONS = frozenset(
     {
         "identity.self.read",
+        "attempts.self",
         "content.read",
         "identity.preferences.write",
         "identity.sessions.read",

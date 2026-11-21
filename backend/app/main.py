@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI
 from app.admin.api import router as admin_router
 from app.admin.auth_api import router as mfa_router
 from app.api.health import router
+from app.attempts.api import router as attempts_router
 from app.content.api import router as content_router
 from app.core.config import Settings
 from app.core.errors import ErrorEnvelope, register_error_handlers
@@ -53,4 +54,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_router)
     app.include_router(imports_router)
     app.include_router(publishing_router)
+    app.include_router(attempts_router)
     return app
