@@ -291,9 +291,7 @@ async def test_import_review_publish_withdraw_and_roles_remain_closed_even_after
             "import-templates/xlsx",
             "auth/enroll",
             "auth/recovery",
-            "question-revisions/" + str(uuid4()) + "/publish",
             "question-revisions/" + str(uuid4()) + "/review",
-            "question-revisions/" + str(uuid4()) + "/withdraw",
         ):
             assert (
                 await actor.client.post("/api/v1/admin/" + path, json={}, headers=actor.headers)

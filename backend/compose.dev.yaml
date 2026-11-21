@@ -74,7 +74,7 @@ services:
   import-worker:
     <<: *runtime
     profiles: [imports]
-    command: [python, -m, app.imports.worker]
+    command: [python, -m, app.publishing.worker, --with-imports]
     volumes: [imports:/var/lib/medexa-imports]
     read_only: true
     tmpfs: [/tmp:size=16m,mode=1777]

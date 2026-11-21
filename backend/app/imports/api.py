@@ -41,7 +41,7 @@ def scope(request: Request, statement: Any) -> Any:
 async def get_job(request: Request, job_id: UUID, *, lock: bool = False) -> ImportJob:
     statement = scope(request, select(ImportJob).where(ImportJob.id == job_id))
     if lock:
-        statement = statement.with_for_update()
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     job = await current_db(request).scalar(statement)
     if job is None:
         raise ApplicationError("NOT_FOUND", "Задание не найдено.", 404)
@@ -67,7 +67,7 @@ def data(job: ImportJob) -> dict[str, Any]:
         "message": MESSAGES.get(job.error_code or ""),
         "created_at": job.created_at,
         "updated_at": job.updated_at,
-        "publication_available": False,
+        "publication_available": job.status == "completed",
     }
 
 
@@ -269,6 +269,12 @@ async def retry(job_id: UUID, request: Request) -> Any:
         )
     if job.raw_deleted_at is not None:
         raise ApplicationError("FILE_EXPIRED", MESSAGES["FILE_EXPIRED"], 409)
+    from app.publishing.models import PublicationRun
+
+    if await current_db(request).scalar(
+        select(PublicationRun.id).where(PublicationRun.import_job_id == job.id).limit(1)
+    ):
+        raise ApplicationError("IMPORT_FROZEN", "Набор уже подтверждён для публикации.", 409)
     job.status = "queued"
     job.phase = "queued"
     job.cancel_requested = False

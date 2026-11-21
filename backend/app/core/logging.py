@@ -11,6 +11,8 @@ _EVENTS = {
     "readiness_failed",
     "import_processing_failed",
     "import_job_finished",
+    "publication_finished",
+    "publication_failed",
 }
 _SAFE_FIELDS = ("method", "route", "status", "duration_ms", "error_type", "code", "job_id")
 

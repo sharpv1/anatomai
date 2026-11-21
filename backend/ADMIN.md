@@ -1,19 +1,19 @@
 # MEDEXA Backend 2.0 — MFA, черновики и упрощённая политика вопросов
 
-Реализованы 3b.1 (MFA/admin drafts) и редакция политики `0005_publication_policy`. Этап 3b.2 добавляет приватный импорт в draft; HTTP-публикация остаётся этапом 3b.3.
+Реализованы 3b.1 (MFA/admin drafts) и редакция политики `0005_publication_policy`. Этап 3b.2 добавляет приватный импорт в draft; HTTP-публикация реализована в 3b.3 через явное подтверждение.
 Базовая реализация MFA/admin — `c1dbe0b438432b1666098e08ce7beae2a12efbf8`.
 Импорт 3b.2 создан от `d190b9d`; база PR — `refactor/medexa-publication-policy`.
 Требования: [архитектура, §5/6/9/11–14](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
 
 Доступны TOTP step-up, операторское enrollment/recovery, роли и
 MFA-gated API для черновиков каталога, источников и вопросов. Импорт XLSX/DOCX, quarantine/staging, worker и CSV-отчёты реализованы в 3b.2;
-инструкция, шаблоны и API — [IMPORTS.md](IMPORTS.md). **Review/publish/withdraw HTTP
-не открыты**; наличие роли/MFA не включает публикацию.
+инструкция, шаблоны и API — [IMPORTS.md](IMPORTS.md). **Review HTTP не открыт**; publish/withdraw/restore реализованы в 3b.3
+только через явные подтверждения [PUBLISHING.md](PUBLISHING.md).
 Движок попыток, XP, платежи и интеграция Frontend также не добавлены.
 
 ## Совместимость и миграция
 
-Текущая head — `0006_import_staging` после неизменённых 0001–0005. Этап 0004 добавил:
+Текущая head — `0007_publishing` после неизменённых 0001–0005. Этап 0004 добавил:
 
 - `admin_mfa_credentials`: encrypted secret, counter, credential epoch, rate-limit state;
 - `admin_recovery_codes`: SHA-256 хэши случайных одноразовых 128-bit кодов, epoch, used_at;
@@ -182,7 +182,7 @@ source_reference, source_page и license_reference необязательны. �
 admin может публиковать свои/доступные drafts. Существующая content_reviewer сохраняется
 для совместимости, но её участие не является условием. Публикация набора импорта требует
 отдельного content.import.publish (admin). MFA/CSRF/ownership/audit обязательны.
-В текущем HTTP router publishing permissions по-прежнему fail-closed до 3b.3.
+В 3b.3 publishing permissions открыты только для реализованных явных операций.
 
 **3b.2 — staging/import:** versioned XLSX/DOCX §11; citation/license столбцы необязательны
 и могут отсутствовать. SHA/type/quarantine/ZIP/formula guards, bounded DB worker,
@@ -199,8 +199,7 @@ row-level errors/create/update/unchanged/conflict, safe export, cancel/reclaim/r
 отчёт различает applied/pending/failed, cancel не переписывает применённую историю.
 Withdraw/restore меняют только допустимые pointers/status с аудитом.
 
-HTTP upload/import/cancel/retry/report реализованы в 3b.2; publish/withdraw/restore
-пока отсутствуют. Полный pipeline публикации не объявляется готовым.
+HTTP upload/import/cancel/retry/report реализованы в 3b.2; publish/withdraw/restore реализованы в 3b.3 — см. PUBLISHING.md.
 
 ## Откат и безопасность эксплуатации
 
@@ -226,3 +225,11 @@ backup/ключа и согласованная версия runtime+schema. Н�
 question_revisions.license_reference. Старые миграции и история не переписаны.
 Реализованный протокол описан в [IMPORTS.md](IMPORTS.md); последующие планы 3b.3
 в этом документе не означают наличие HTTP-публикации.
+
+## Этап 3b.3 — публикация и восстановление
+
+Реализованы явные MFA/CSRF-gated API publish/withdraw/restore и подтверждение
+выбранной части import job. Текущая head — `0007_publishing`.
+Полный актуальный контракт, постоянная идемпотентность, batch reports и dev worker —
+[PUBLISHING.md](PUBLISHING.md). Прежние пометки о закрытых URL публикации выше
+описывали этап 3b.2 и заменены этим срезом. Нет reviewer/source/license gate.

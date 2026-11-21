@@ -4,7 +4,7 @@
 
 Основание аудита: ANATOMAI UI 8.3.2, ветка `fix/anatomai-scrollbars-8.3.2`, коммит `b3576d515aa39923daec20e0e420456c8bf96e7e`. Документ подготовлен в отдельной ветке `docs/medexa-backend-architecture`. Проверены исходники и существующие тесты; работающий Preview, VPS и старый Backend не исследовались и не изменялись. Данные об их фактической конфигурации отсутствуют.
 
-**Редакция политики вопросов от 21.11.2026:** источники и лицензии необязательны; отдельный медицинский reviewer не является условием публикации. Структурно корректные собственные вопросы может публиковать администратор или уполномоченный редактор. Импортированный набор публикуется по явному подтверждению администратора. MFA, права, file security, audit и immutable версии сохраняются. Реализованные изменения схемы/DTO — `0005_publication_policy`; HTTP import в draft реализован этапом 3b.2 (`0006_import_staging`); публикация остаётся 3b.3.
+**Редакция политики вопросов от 21.11.2026:** источники и лицензии необязательны; отдельный медицинский reviewer не является условием публикации. Структурно корректные собственные вопросы может публиковать администратор или уполномоченный редактор. Импортированный набор публикуется по явному подтверждению администратора. MFA, права, file security, audit и immutable версии сохраняются. Реализованные изменения схемы/DTO — `0005_publication_policy`; HTTP import в draft реализован этапом 3b.2 (`0006_import_staging`); явная публикация реализована 3b.3 (`0007_publishing`).
 
 **Решение:** модульный монолит FastAPI с PostgreSQL как единственным источником истины. Один процесс API и небольшой обработчик фоновых заданий без Redis/Celery. Сервер хранит версии вопросов, попытки, ответы, результаты и журнал начислений. Клиент сохраняет существующие компоненты, оформление и Telegram lifecycle, получая данные через типизированный API-слой.
 
@@ -211,7 +211,7 @@ erDiagram
 | assets | id, storage_key, sha256, media_type, byte_size, status, created_by | UNIQUE storage_key; byte_size>0; приватный volume вне public; загрузки в quarantine до проверки |
 | legacy_mappings | entity_type, legacy_id, discipline_id/topic_id/test_definition_id/question_id (nullable typed FK) | PK(entity_type,legacy_id); CHECK: заполнен ровно один FK, соответствующий entity_type; отдельные partial UNIQUE по каждому target FK. Нельзя ссылаться на несуществующий общий UUID |
 | catalog_state | id singleton PK, version bigint, changed_at | Одна строка; увеличение version при публикации/архивировании. Не пользовательская настройка |
-| import_jobs | id, sequence, asset_id, sha256, template_version, file_format, status, phase, created_by, authorized_session_id nullable, mfa_verified_at, counters, attempts, lease_token/lease_until nullable, result_version, cancel_requested, raw_deleted_at nullable | UNIQUE(created_by,sha256,file_format,template_version); index(status,lease_until,sequence); index(created_by,sequence). Confirmation/publish fields добавляются в 3b.3 |
+| import_jobs | id, sequence, asset_id, sha256, template_version, file_format, status, phase, created_by, authorized_session_id nullable, mfa_verified_at, counters, attempts, lease_token/lease_until nullable, result_version, cancel_requested, raw_deleted_at nullable | UNIQUE(created_by,sha256,file_format,template_version); index(status,lease_until,sequence); index(created_by,sequence). Confirmation/publish fields — отдельные publication_runs/items в 0007 |
 | import_rows | id, import_job_id, position, location, discipline, topic, external_key, generated_key, fingerprint/content_hash nullable, normalized_payload, errors/warnings, topic_id/target_question_id/applied_revision_id nullable, action | UNIQUE(import_job_id,position); JSON до 64 KiB; staging закрыт, без публичного raw download |
 | import_content_keys | topic_id, content_hash, question_id | PK(topic_id,content_hash); точная дедупликация импортированного содержания, FK RESTRICT |
 
@@ -498,7 +498,7 @@ GET `/topics` без discipline_id обеспечивает существующ
 | GET/POST `/admin/sources`; GET/PATCH/DELETE `/admin/sources/{id}` | E/A, R read | Необязательные метаданные источников. Создание source не является предварительным шагом создания вопроса |
 | GET/POST `/admin/questions`; GET `/admin/questions/{id}` | E/R | Поиск и создание draft с options/source; создание не публикует |
 | GET/POST `/admin/questions/{id}/revisions`; GET/PATCH `/admin/question-revisions/{id}` | E/R | Новая редакция/правка только draft; просмотр истории |
-| POST `/admin/question-revisions/{id}/publish`; POST `.../{id}/withdraw`; POST `.../{id}/restore` | E/A (R по совместимому permission) | В 3b.3: явная публикация валидного вопроса, withdraw/restore с audit и catalog_version; отдельного /review нет. Для editor действует ownership, admin может публиковать свои/доступные чужие drafts |
+| POST `/admin/question-revisions/{id}/publish`; POST `.../{id}/withdraw`; POST `.../{id}/restore` | E/A (R по совместимому permission) | Реализовано 3b.3: явная публикация валидного вопроса, withdraw/restore с audit и catalog_version; отдельного /review нет. Для editor действует ownership, admin может публиковать свои/доступные чужие drafts |
 | PUT/DELETE `/admin/topics/{topic_id}/questions/{question_id}` | E/R | Управляемая связь/position; перестановка требует publish permission и явного действия, не меняет старые attempts |
 | GET/POST `/admin/notes`; GET/PATCH/DELETE `/admin/notes/{id}` | E/R | Metadata и архивирование конспекта |
 | GET/POST `/admin/notes/{id}/revisions`; GET/PATCH `/admin/note-revisions/{id}` | E/R | Черновик материала, закрытый asset, sanitize |
@@ -508,7 +508,7 @@ GET `/topics` без discipline_id обеспечивает существующ
 | GET/POST `/admin/imports`; GET `/admin/imports/{id}` | E/A | Реализовано 3b.2: POST ?format=xlsx/docx с raw binary сразу создаёт queued job; GET state/counters; owner или admin |
 | GET `/admin/imports/{id}/rows`; GET `.../{id}/report` | E/A | Реализовано 3b.2: bounded preview/CSV после остановки обработки, без публикации |
 | POST `/admin/imports/{id}/cancel`; POST `.../{id}/retry` | E/A | Реализовано 3b.2: owner/admin, MFA+CSRF, отмена неприменённых строк и bounded retry |
-| POST `/admin/imports/{id}/publish` | A | Только план 3b.3: явное admin confirmation актуального набора, без /approve |
+| POST `/admin/imports/{id}/publish` | A | Реализовано 3b.3: явное admin confirmation актуального выбора, без /approve |
 | GET `/admin/users`; GET/PATCH `/admin/users/{id}` | S/A | Support — ограниченный read; block/unblock — admin с причиной |
 | PUT/DELETE `/admin/users/{id}/roles/{code}` | A | Выдача/снятие ролей, запрет самовольной эскалации и удаления последнего admin |
 | GET `/admin/attempts/{id}` | S/A | Диагностика по обращению, ограниченный доступ к ответам; без возможности «записать клиентский score» |
@@ -643,10 +643,10 @@ single_choice требует один ключ; multiple_choice может хр�
 4. Staging нормализует пробелы/NFC, связывает **явные** discipline/topic, сохраняет порядок вариантов и преобразует коды в стабильные option identities. Не создавать неизвестные дисциплины молча. Увеличенные лимиты возможны только после профилирования.
 5. Валидатор: обязательные поля, минимум 2 непустых варианта, уникальные коды, правильные коды входят в варианты, single/multiple инварианты, допустимые размеры текста, отсутствие HTML/вредоносных ссылок, конфликт внешних ID и допустимый формат. Необязательные метаданные проверяются по типу/размеру только при наличии. Проверка не генерирует правильные ответы или объяснения; второго согласования reviewer нет.
 6. Дедупликация: стабильный (ingestion_namespace, external_id), где namespace выводится сервером из выбранной темы/банка и не требует citation source_id; fingerprint нормализованного содержания + вариантов + явно указанного ключа ищет возможные дубли. external_source обозначает namespace загрузки, а не обязательный библиографический источник. Совпадение текста само по себе не является основанием молча слить вопросы. Повтор исходного файла не публикует новые редакции заново.
-7. Dry-run выдаёт report с координатой строки/таблицы, action=create/update/unchanged/conflict, errors/warnings. Изменённый ключ явно выделяется в отчёте. Наличие ошибок блокирует публикацию набора до исправления и повторного dry-run; строки не пропускаются молча. Отсутствующие citation/license поля не создают ошибку. Успешный dry-run оставляет набор в draft/validated и ничего не публикует.
+7. Dry-run выдаёт report с координатой строки/таблицы, action=create/update/unchanged/conflict, errors/warnings. Изменённый ключ явно выделяется в отчёте. Все выбранные строки обязаны быть корректными. В 3b.3 разрешён явно подтверждённый поднабор; ошибки/дубликаты вне выбора остаются в отчёте с excluded count, не публикуются и не пропускаются молча. Отсутствующие citation/license поля не создают ошибку. Успешный dry-run оставляет набор в draft/validated и ничего не публикует.
 8. Администратор со свежей MFA явно подтверждает публикацию набора: confirm=true, ожидаемый hash dry-run, file SHA-256/template_version и Idempotency-Key. Собственный набор подтверждать разрешено. content.import.publish доступен admin; editor может публиковать собственные отдельные вопросы по content.publish. Отдельных approve/review шагов нет. Worker получает зафиксированную сервером команду (без OTP/initData), привязанную к конкретному проверенному набору; изменение staging требует нового подтверждения. Job публикует подтверждённые валидные строки батчами не более 100: каждый batch атомарен, меняет pointers редакций и catalog_version. **Весь большой import не объявляется all-or-nothing**: отчёт явно показывает applied/pending/failed. Cancel останавливает неприменённые строки, не откатывает уже опубликованную историю.
 9. Повтор job использует import_rows.applied_revision_id и fingerprints, не создаёт новые копии. В срезе 3b.2 transient failures повторяются явным bounded retry, crash — автоматическим lease reclaim (всего до 3 запусков); ошибки содержания не повторяются автоматически. Автоматический backoff для отдельных transient ошибок можно добавить в 3b.3.
-10. Откат ошибочной публикации — медицинское withdraw либо новая структурно корректная явно опубликованная редакция/возврат pointer на прежнюю допустимую опубликованную редакцию с audit и catalog_version. Старые attempts продолжают ссылаться на использованные revisions. История не переписывается автоматически.
+10. Откат ошибочной публикации — явный withdraw либо новая структурно корректная явно опубликованная редакция/возврат pointer на прежнюю допустимую опубликованную редакцию с audit и catalog_version. Старые attempts продолжают ссылаться на использованные revisions. История не переписывается автоматически.
 
 Долгосрочно файлы больших банков хранить отдельно от приложения; первоначально закрытый volume с offsite backup достаточно. Quarantine/raw staging имеют согласованный TTL (предложение 30 дней), опубликованные source references и журнал импорта сохраняются. Отчёты CSV/XLSX экранируют значения, начинающиеся с `=`, `+`, `-`, `@`, чтобы скачивание отчёта не стало formula injection.
 
@@ -829,5 +829,36 @@ Mock Chromium не доказывает работоспособность на�
   отчёты и audit сохраняются. Lease fencing + singleton advisory lock, pool=2, retries≤3,
   отмена сохраняет уже закоммиченные draft. Истечение пользовательской сессии после
   приёма команды не аннулирует job; актуальные роли/блокировка проверяются по batch.
-- Плановые publish/confirmation поля и endpoints §5/9/11 относятся к будущему 3b.3;
+- Publish/confirmation поля и endpoints §5/9/11 реализованы отдельным срезом 3b.3 ниже;
   структурная валидация и создание draft не являются подтверждением публикации.
+
+### Реализованный срез 3b.3 (0007_publishing)
+
+Контракт/эксплуатация: [backend/PUBLISHING.md](../backend/PUBLISHING.md).
+GET question-revisions/{id}/publication-preview и imports/{id}/publication-preview
+выдают actor-bound hash/ETag. POST publish/withdraw/restore требуют явного boolean
+confirm, SHA-256 hash актуального preview, If-Match и Idempotency-Key. Импорт
+дополнительно требует file_sha256/template_version и selected_positions (до 5000).
+Выбранные строки целиком корректны, неподдерживаемые типы/ошибки не публикуются.
+
+publication_commands — permanent UNIQUE(actor,operation,key) receipt/hash/result;
+publication_runs — confirmer/session/MFA timestamp, import FK, immutable staging/file/
+selection/confirmation hashes, selected_count, lease/fencing/attempts/status;
+publication_items — immutable row/revision/question snapshot, UNIQUE(run,question),
+позиция, pending/published/unchanged/failed. Активный run/import уникален.
+Import rows/job/asset metadata замораживаются после первого подтверждения.
+Прежние 0001–0006 и immutable content guards не переписаны.
+
+Worker batch≤100 атомарен с audit и outcomes; actual snapshots/file/staging проверяются
+повторно, max attempts=3, общий job timeout=600s. Общий advisory lock с import worker,
+один dev процесс/pool=2 обслуживает обе очереди через --with-imports.
+GET publications/{id}, POST .../cancel, .../retry дают отчёт/контроль частичного успеха.
+Истечение grant/session после приёма не отменяет команду; блокировка/отзыв admin
+останавливает pending. Новые команды требуют свежей MFA.
+
+Withdraw сохраняет контент; restore ещё published версии возвращает pointer,
+restore withdrawn версии создаёт новую опубликованную копию с новыми option IDs
+и audit source_revision_id. Equivalently active copy → unchanged. Никакого
+withdrawn→published UPDATE старой записи: будущие attempts сохраняют исходные FK.
+Публикационные DML повышают catalog_version, stale cursors инвалидируются.
+Публикация родителей каталога/attempt engine/XP/платежи/административный UI не добавлены.

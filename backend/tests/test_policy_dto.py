@@ -40,11 +40,12 @@ def test_publication_capabilities_are_planned_but_unimplemented_routes_stay_clos
     assert "content.publish" in ROLE_PERMISSIONS["content_editor"]
     assert "content.import.publish" in ROLE_PERMISSIONS["admin"]
     assert "content.import.publish" not in ROLE_PERMISSIONS["content_editor"]
-    assert "content.publish" not in MFA_HTTP_PERMISSIONS
+    assert "content.publish" in MFA_HTTP_PERMISSIONS
     for role, permission in (
         ("content_editor", "content.publish"),
         ("admin", "content.import.publish"),
     ):
+        authorize({role}, permission, mfa_verified=True)
         with pytest.raises(ApplicationError) as exc:
-            authorize({role}, permission, mfa_verified=True)
+            authorize({role}, permission, mfa_verified=False)
         assert exc.value.code == "MFA_REQUIRED"
