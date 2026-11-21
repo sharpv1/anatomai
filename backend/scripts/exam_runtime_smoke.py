@@ -27,7 +27,7 @@ async def worker_check():
 
 
 assert os.getuid() == 10001
-assert EXPECTED_SCHEMA_REVISION == "0009_exam_attempts"
+assert EXPECTED_SCHEMA_REVISION == "0010_progress_statistics"
 asyncio.run(worker_check())
 with socket.socket() as probe:
     probe.bind(("127.0.0.1", 0))

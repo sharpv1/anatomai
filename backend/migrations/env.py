@@ -14,6 +14,7 @@ from app.db.base import Base
 from app.db.models import IdempotencyRequest  # noqa: F401 -- register metadata
 from app.identity import models  # noqa: F401 -- register identity metadata
 from app.imports import models as import_models  # noqa: F401 -- metadata
+from app.progress import models as progress_models  # noqa: F401 -- metadata
 from app.publishing import models as publishing_models  # noqa: F401 -- metadata
 
 target_metadata = Base.metadata

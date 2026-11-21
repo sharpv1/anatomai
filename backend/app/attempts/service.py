@@ -249,7 +249,7 @@ async def create(request: Request, body: Start) -> Attempt:
     ranks = ranked.subquery()
     selected = (
         await db.execute(
-            select(ranks.c.id, ranks.c.revision_id)
+            select(ranks.c.id, ranks.c.revision_id, ranks.c.topic_id)
             .where(ranks.c.rank == 1)
             .order_by(ranks.c.topic_position, ranks.c.topic_id, ranks.c.position, ranks.c.id)
             .limit(5001)
@@ -332,6 +332,7 @@ async def create(request: Request, body: Start) -> Attempt:
             id=uuid4(),
             attempt_id=attempt.id,
             question_id=row.id,
+            topic_id=row.topic_id,
             revision_id=row.revision_id,
             position=i,
         )

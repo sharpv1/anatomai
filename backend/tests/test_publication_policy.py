@@ -216,7 +216,8 @@ async def test_policy_rollback_refuses_new_data_instead_of_inventing_review(poli
         with pytest.raises(RuntimeError, match="downgrade blocked"):
             await connection.run_sync(attempt)
         assert (
-            await db.scalar(text("SELECT version_num FROM alembic_version")) == "0009_exam_attempts"
+            await db.scalar(text("SELECT version_num FROM alembic_version"))
+            == "0010_progress_statistics"
         )
         stored = await db.get(QuestionRevision, rev.id)
         assert stored.status == "published" and stored.medical_review_by is None
