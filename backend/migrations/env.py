@@ -6,6 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.content import models as content_models  # noqa: F401 -- metadata
 from app.core.config import Settings
 from app.db.base import Base
 from app.db.models import IdempotencyRequest  # noqa: F401 -- register metadata

@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import Request
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,8 +34,14 @@ async def identity_transaction(request: Request) -> AsyncIterator[AsyncSession]:
 
 async def enforce_access(request: Request) -> AsyncIterator[None]:
     policy = getattr(request.scope.get("endpoint"), "medexa_permission", None)
-    if policy == "public.health":
+    if policy in ("public.health", "public.meta"):
         yield
+        return
+    if policy == "public.catalog":
+        async with identity_transaction(request) as db:
+            await db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+            request.state.content_db = db
+            yield
         return
     settings: Settings = request.app.state.settings
     if policy in ("public.telegram_exchange", "public.logout"):
