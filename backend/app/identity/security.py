@@ -80,16 +80,35 @@ class IdentityRequestMiddleware:
             if scope["path"] == "/api/v1/auth/telegram":
                 require_origin(headers, self.settings, mutation=True)
                 self.limiter.take((scope.get("client") or ("unknown", 0))[0])
+            streaming_import = (
+                scope["path"] == "/api/v1/admin/imports" and scope["method"] == "POST"
+            )
+            body_limit = 10 * 1024 * 1024 if streaming_import else 32768
             length = headers.get("content-length")
             if length is not None and (
                 not length.isascii()
                 or not length.isdigit()
                 or len(length) > 10
-                or int(length) > 32768
+                or int(length) > body_limit
             ):
                 raise ApplicationError("REQUEST_TOO_LARGE", "Запрос слишком большой.", 413)
             if scope["scheme"] != "https":
                 raise ApplicationError("HTTPS_REQUIRED", "Требуется HTTPS.", 403)
+            if streaming_import:
+                # Request-only endpoint: dependencies authenticate/authorize MFA+CSRF before
+                # it consumes this stream. Never buffer uploads before authorization.
+                received = 0
+
+                async def bounded_import_receive() -> Message:
+                    nonlocal received
+                    message = await receive()
+                    received += len(message.get("body", b""))
+                    if received > body_limit:
+                        raise ApplicationError("REQUEST_TOO_LARGE", "Файл больше 10 MB.", 413)
+                    return message
+
+                await self.app(scope, bounded_import_receive, send)
+                return
             size = 0
             messages: list[Message] = []
             while True:

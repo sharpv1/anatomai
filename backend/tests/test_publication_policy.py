@@ -217,7 +217,7 @@ async def test_policy_rollback_refuses_new_data_instead_of_inventing_review(poli
             await connection.run_sync(attempt)
         assert (
             await db.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0005_publication_policy"
+            == "0006_import_staging"
         )
         stored = await db.get(QuestionRevision, rev.id)
         assert stored.status == "published" and stored.medical_review_by is None

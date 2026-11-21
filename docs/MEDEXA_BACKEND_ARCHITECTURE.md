@@ -4,7 +4,7 @@
 
 Основание аудита: ANATOMAI UI 8.3.2, ветка `fix/anatomai-scrollbars-8.3.2`, коммит `b3576d515aa39923daec20e0e420456c8bf96e7e`. Документ подготовлен в отдельной ветке `docs/medexa-backend-architecture`. Проверены исходники и существующие тесты; работающий Preview, VPS и старый Backend не исследовались и не изменялись. Данные об их фактической конфигурации отсутствуют.
 
-**Редакция политики вопросов от 21.11.2026:** источники и лицензии необязательны; отдельный медицинский reviewer не является условием публикации. Структурно корректные собственные вопросы может публиковать администратор или уполномоченный редактор. Импортированный набор публикуется по явному подтверждению администратора. MFA, права, file security, audit и immutable версии сохраняются. Реализованные изменения схемы/DTO — `0005_publication_policy`; HTTP import/publish остаются этапами 3b.2–3b.3.
+**Редакция политики вопросов от 21.11.2026:** источники и лицензии необязательны; отдельный медицинский reviewer не является условием публикации. Структурно корректные собственные вопросы может публиковать администратор или уполномоченный редактор. Импортированный набор публикуется по явному подтверждению администратора. MFA, права, file security, audit и immutable версии сохраняются. Реализованные изменения схемы/DTO — `0005_publication_policy`; HTTP import в draft реализован этапом 3b.2 (`0006_import_staging`); публикация остаётся 3b.3.
 
 **Решение:** модульный монолит FastAPI с PostgreSQL как единственным источником истины. Один процесс API и небольшой обработчик фоновых заданий без Redis/Celery. Сервер хранит версии вопросов, попытки, ответы, результаты и журнал начислений. Клиент сохраняет существующие компоненты, оформление и Telegram lifecycle, получая данные через типизированный API-слой.
 
@@ -115,7 +115,7 @@ flowchart LR
 |---|---|
 | API | Один Uvicorn worker; async SQLAlchemy/asyncpg; pool_size=3, max_overflow=0; без reload |
 | PostgreSQL | max_connections около 25, shared_buffers=128 MB, work_mem=4 MB, maintenance_work_mem=64 MB; обязательные statement/lock timeouts |
-| Worker | Concurrency=1, pool_size=1; тяжёлый импорт — отдельный ограниченный subprocess, не event loop API |
+| Worker | Concurrency=1, pool_size=2 (singleton advisory lock + транзакция); тяжёлый импорт — отдельный ограниченный subprocess, не event loop API |
 | RAM | Ориентир steady-state: OS 300–450 MB, PostgreSQL 300–500 MB, API 150–300 MB, worker 80–180 MB, Nginx/служебные процессы 30–80 MB; оставить запас под пики |
 | Пиковые задачи | Импорт, сжатие backup и обслуживание индексов не одновременно. Ограничить subprocess, читать XLSX потоково |
 | Списки | Review по 30, история по 20, max page_size=100; один ответ API до 1 MB, длинный материал выдаётся отдельно |
@@ -202,7 +202,7 @@ erDiagram
 | topics | id, discipline_id, slug, title, position, status, access_policy_id nullable | UNIQUE(discipline_id,slug); index(discipline_id,status,position,id) |
 | test_definitions | id, topic_id, slug, title, exam_duration_seconds, question_limit nullable, selection_policy, policy_version, internal_difficulty nullable, status | UNIQUE(topic_id,slug); CHECK duration>0, limit>0 если задан; MVP selection_policy=ordered_all; counts вычислять по доступному банку |
 | questions | id, external_source, external_id nullable, current_revision_id nullable, archived_at | UNIQUE(external_source,external_id) для ingestion namespace + внешнего ID; external_source не является обязательным библиографическим source_id; FK current_revision на редакцию этого же question, не чужого |
-| question_revisions | id, question_id, revision_number, kind, text, explanation nullable, source_id nullable, source_reference nullable, source_page nullable, created_by, medical_review_by nullable (legacy), reviewed_at nullable (legacy), status, normalized_search_text, fingerprint | UNIQUE(question_id,revision_number); UNIQUE(question_id,id) для составных FK; kind single_choice/multiple_choice; index(question_id,status). Explanation хранится, но не возвращается текущему UI |
+| question_revisions | id, question_id, revision_number, kind, text, explanation nullable, source_id nullable, source_reference nullable, source_page nullable, license_reference nullable, created_by, medical_review_by nullable (legacy), reviewed_at nullable (legacy), status, normalized_search_text, fingerprint | UNIQUE(question_id,revision_number); UNIQUE(question_id,id) для составных FK; kind single_choice/multiple_choice; index(question_id,status). Explanation хранится, но не возвращается текущему UI |
 | question_options | id UUID, revision_id, position, code, text, is_correct | PK id; UNIQUE(revision_id,id), UNIQUE(revision_id,position), UNIQUE(revision_id,code); position>=0; immutable после публикации |
 | topic_questions | topic_id, question_id, position | PK(topic_id,question_id); UNIQUE(topic_id,position); index(question_id). Редакция выбирается через current_revision_id и фиксируется при старте попытки |
 | notes | id, discipline_id, topic_id nullable, slug, current_revision_id nullable, position, status, access_policy_id nullable | UNIQUE(discipline_id,slug); FK topic должен принадлежать discipline; index(discipline_id,status,position,id) |
@@ -211,8 +211,9 @@ erDiagram
 | assets | id, storage_key, sha256, media_type, byte_size, status, created_by | UNIQUE storage_key; byte_size>0; приватный volume вне public; загрузки в quarantine до проверки |
 | legacy_mappings | entity_type, legacy_id, discipline_id/topic_id/test_definition_id/question_id (nullable typed FK) | PK(entity_type,legacy_id); CHECK: заполнен ровно один FK, соответствующий entity_type; отдельные partial UNIQUE по каждому target FK. Нельзя ссылаться на несуществующий общий UUID |
 | catalog_state | id singleton PK, version bigint, changed_at | Одна строка; увеличение version при публикации/архивировании. Не пользовательская настройка |
-| import_jobs | id, asset_id, source_sha256, template_version, status, created_by, confirmed_by nullable, confirmed_at nullable, confirmation_fingerprint nullable, counts, report_asset_id nullable, job_id | index(created_by,created_at); повтор файла возвращает существующий dry-run либо явную новую ревизию задания, не повторно публикует |
-| import_rows | id, import_job_id, source_position, external_key, normalized_payload, fingerprint, validation_errors, target_question_id nullable, applied_revision_id nullable, status | UNIQUE(import_job_id,source_position); index(import_job_id,status); сырой текст только в закрытом staging с TTL |
+| import_jobs | id, sequence, asset_id, sha256, template_version, file_format, status, phase, created_by, authorized_session_id nullable, mfa_verified_at, counters, attempts, lease_token/lease_until nullable, result_version, cancel_requested, raw_deleted_at nullable | UNIQUE(created_by,sha256,file_format,template_version); index(status,lease_until,sequence); index(created_by,sequence). Confirmation/publish fields добавляются в 3b.3 |
+| import_rows | id, import_job_id, position, location, discipline, topic, external_key, generated_key, fingerprint/content_hash nullable, normalized_payload, errors/warnings, topic_id/target_question_id/applied_revision_id nullable, action | UNIQUE(import_job_id,position); JSON до 64 KiB; staging закрыт, без публичного raw download |
+| import_content_keys | topic_id, content_hash, question_id | PK(topic_id,content_hash); точная дедупликация импортированного содержания, FK RESTRICT |
 
 **Публикационные инварианты вопросов:** single_choice имеет 2–8 вариантов и ровно один верный; multiple_choice — минимум 2 варианта и минимум один верный. Текущий движок не поддерживает multiple_choice, поэтому такие вопросы можно подготовить в draft, но нельзя публиковать в тестовый пул текущего клиента. Межстрочное число правильных вариантов и неизменяемость опубликованных редакций проверяются сервисом и deferred constraint trigger в БД; обычный CHECK не может посчитать дочерние строки. Публикация вопроса требует структурной валидности, права content.publish, свежей MFA и явного действия пользователя; совпадение publisher/creator разрешено. source_id/source_reference/source_page и license_reference необязательны, отдельный medical reviewer/approval не требуется. Старые medical_review_by/reviewed_at сохраняются как исторические поля и не заполняются фиктивным самоодобрением. current_revision_id ссылается только на опубликованную редакцию того же объекта. При правке создаются новые option_id; старые не переиспользуются для другого текста.
 
@@ -502,11 +503,12 @@ GET `/topics` без discipline_id обеспечивает существующ
 | GET/POST `/admin/notes`; GET/PATCH/DELETE `/admin/notes/{id}` | E/R | Metadata и архивирование конспекта |
 | GET/POST `/admin/notes/{id}/revisions`; GET/PATCH `/admin/note-revisions/{id}` | E/R | Черновик материала, закрытый asset, sanitize |
 | POST `/admin/note-revisions/{id}/review`; POST `.../{id}/publish`; POST `.../{id}/withdraw` | R | Versioned публикация, без автоматической генерации медицинского текста |
-| POST `/admin/assets`; GET `/admin/assets/{id}` | E/R | Bounded upload/quarantine/status; не произвольное чтение пути сервера |
-| GET `/admin/import-templates/{format}` | E/R | Версионированные XLSX/DOCX-шаблоны и инструкция |
-| GET/POST `/admin/imports`; GET `/admin/imports/{id}` | E/R | Задание dry-run по загруженному asset/template_version, состояние/счётчики |
-| GET `/admin/imports/{id}/rows`; GET `.../{id}/report` | E/R | Ошибки/предпросмотр/скачивание отчёта без публикации |
-| POST `/admin/imports/{id}/publish`; POST `.../{id}/cancel` | A для publish; E/A для своих dry-run/cancel | В 3b.3: явное admin confirmation после успешного dry-run, затем фоновая публикация; отдельного /approve нет |
+| POST `/admin/assets`; GET `/admin/assets/{id}` | E/A | Плановый общий asset API; в 3b.2 не открыт: файл принимается одним POST /admin/imports |
+| GET `/admin/import-templates/{format}` | E/A | Реализовано 3b.2: пустые XLSX/DOCX-шаблоны v1, MFA |
+| GET/POST `/admin/imports`; GET `/admin/imports/{id}` | E/A | Реализовано 3b.2: POST ?format=xlsx/docx с raw binary сразу создаёт queued job; GET state/counters; owner или admin |
+| GET `/admin/imports/{id}/rows`; GET `.../{id}/report` | E/A | Реализовано 3b.2: bounded preview/CSV после остановки обработки, без публикации |
+| POST `/admin/imports/{id}/cancel`; POST `.../{id}/retry` | E/A | Реализовано 3b.2: owner/admin, MFA+CSRF, отмена неприменённых строк и bounded retry |
+| POST `/admin/imports/{id}/publish` | A | Только план 3b.3: явное admin confirmation актуального набора, без /approve |
 | GET `/admin/users`; GET/PATCH `/admin/users/{id}` | S/A | Support — ограниченный read; block/unblock — admin с причиной |
 | PUT/DELETE `/admin/users/{id}/roles/{code}` | A | Выдача/снятие ролей, запрет самовольной эскалации и удаления последнего admin |
 | GET `/admin/attempts/{id}` | S/A | Диагностика по обращению, ограниченный доступ к ответам; без возможности «записать клиентский score» |
@@ -622,13 +624,20 @@ Exam current item — **нет даже nullable correctness-полей**, чт�
 
 MVP: `.xlsx` и структурированный `.docx`. Старые `.xls/.doc`, `.xlsm`, произвольные архивы и PDF/OCR не импортируются автоматически; предоставить понятную ошибку и инструкцию доверенной конвертации вне VPS. Не запускать Office/LibreOffice и макросы внутри API. Excel — предпочтительный массовый формат; Word поддерживается только по утверждённому шаблону, не эвристикой «угадать, где ответ».
 
-Шаблон XLSX: discipline_slug, topic_slug, question_external_id, question_type, question_text, option_A…option_H и явные correct_options (`A` или список) описывают структуру вопроса. source_id, source_reference, source_page, license_reference и explanation — необязательные столбцы; их можно не включать в файл, оставить пустыми или передать null. Отсутствие происхождения/лицензии не является ошибкой или блокирующим предупреждением. Версионирование шаблонов сохраняется; неизвестные коды/пустые варианты/отсутствующий правильный ключ являются ошибкой структуры.
-
-DOCX: структурированные таблицы с явными колонками «Вопрос», «Варианты с кодами», «Правильные коды» и идентификатором строки; дисциплина/тема задаются заголовком/контекстом импорта. «Источник», «Страница», «Лицензия», «Объяснение» необязательны. Цвет/жирность не заменяют ключ ответа. Никакого угадывания ответов, генерации медицинского текста или автоматической публикации после загрузки.
+Шаблон v1 XLSX/DOCX имеет одинаковые колонки: обязательные discipline, topic,
+question, option_A, option_B, correct. Поддержаны русские заголовки «Дисциплина»,
+«Тема», «Вопрос», «Ответ A», «Ответ B», «Правильный ответ». Дополнительные option_C…H,
+external_id, kind, source_id/source_reference/source_page/license_reference/explanation
+необязательны. Один лист XLSX или структурированные таблицы DOCX с заголовками в каждой.
+Дисциплина/тема — существующее точное название либо slug; контекст не угадывается из
+параграфов Word. Без external_id сервер создаёт стабильный hash key в namespace темы.
+single_choice требует один ключ; multiple_choice может храниться только в draft,
+пока test/publication контракт не поддерживает этот тип. Детальный **реализованный**
+контракт 3b.2 и ограничения — [backend/IMPORTS.md](../backend/IMPORTS.md).
 
 ### 11.2. Pipeline
 
-1. Авторизованный editor загружает файл в quarantine; фиксируются SHA-256, размер, MIME/magic, template_version и выбранная дисциплина/тема. Метаданные источника/лицензии сохраняются только если предоставлены.
+1. Авторизованный editor загружает файл в quarantine; фиксируются SHA-256, размер, MIME/magic и template_version; дисциплина/тема указаны в строках шаблона. Метаданные источника/лицензии сохраняются только если предоставлены.
 2. Worker проверяет контейнер DOCX/XLSX: лимиты числа ZIP entries и суммарного распакованного размера, отсутствие path traversal, внешних relationships/embedded executables, макросов. Формулы Excel отклоняются, не исполняются и не принимаются по непроверенному cached value.
 3. Парсинг вне API, XLSX read_only streaming. Первичные лимиты для проверки на VPS: upload≤10 MB, unpacked≤50 MB, до 5 000 строк на dry-run, batch≤100 при публикации, timeout парсера≤60 секунд и memory limit. До замеров большие DOCX отклонять; ошибка resource limit не должна создавать бесконечный retry/OOM API.
 4. Staging нормализует пробелы/NFC, связывает **явные** discipline/topic, сохраняет порядок вариантов и преобразует коды в стабильные option identities. Не создавать неизвестные дисциплины молча. Увеличенные лимиты возможны только после профилирования.
@@ -636,7 +645,7 @@ DOCX: структурированные таблицы с явными коло
 6. Дедупликация: стабильный (ingestion_namespace, external_id), где namespace выводится сервером из выбранной темы/банка и не требует citation source_id; fingerprint нормализованного содержания + вариантов + явно указанного ключа ищет возможные дубли. external_source обозначает namespace загрузки, а не обязательный библиографический источник. Совпадение текста само по себе не является основанием молча слить вопросы. Повтор исходного файла не публикует новые редакции заново.
 7. Dry-run выдаёт report с координатой строки/таблицы, action=create/update/unchanged/conflict, errors/warnings. Изменённый ключ явно выделяется в отчёте. Наличие ошибок блокирует публикацию набора до исправления и повторного dry-run; строки не пропускаются молча. Отсутствующие citation/license поля не создают ошибку. Успешный dry-run оставляет набор в draft/validated и ничего не публикует.
 8. Администратор со свежей MFA явно подтверждает публикацию набора: confirm=true, ожидаемый hash dry-run, file SHA-256/template_version и Idempotency-Key. Собственный набор подтверждать разрешено. content.import.publish доступен admin; editor может публиковать собственные отдельные вопросы по content.publish. Отдельных approve/review шагов нет. Worker получает зафиксированную сервером команду (без OTP/initData), привязанную к конкретному проверенному набору; изменение staging требует нового подтверждения. Job публикует подтверждённые валидные строки батчами не более 100: каждый batch атомарен, меняет pointers редакций и catalog_version. **Весь большой import не объявляется all-or-nothing**: отчёт явно показывает applied/pending/failed. Cancel останавливает неприменённые строки, не откатывает уже опубликованную историю.
-9. Повтор job использует import_rows.applied_revision_id и fingerprints, не создаёт новые копии. Ошибки transient повторяются с backoff и max_attempts; ошибки содержания не повторяются автоматически.
+9. Повтор job использует import_rows.applied_revision_id и fingerprints, не создаёт новые копии. В срезе 3b.2 transient failures повторяются явным bounded retry, crash — автоматическим lease reclaim (всего до 3 запусков); ошибки содержания не повторяются автоматически. Автоматический backoff для отдельных transient ошибок можно добавить в 3b.3.
 10. Откат ошибочной публикации — медицинское withdraw либо новая структурно корректная явно опубликованная редакция/возврат pointer на прежнюю допустимую опубликованную редакцию с audit и catalog_version. Старые attempts продолжают ссылаться на использованные revisions. История не переписывается автоматически.
 
 Долгосрочно файлы больших банков хранить отдельно от приложения; первоначально закрытый volume с offsite backup достаточно. Quarantine/raw staging имеют согласованный TTL (предложение 30 дней), опубликованные source references и журнал импорта сохраняются. Отчёты CSV/XLSX экранируют значения, начинающиеся с `=`, `+`, `-`, `@`, чтобы скачивание отчёта не стало formula injection.
@@ -800,3 +809,25 @@ Mock Chromium не доказывает работоспособность на�
 Проверки этого изменения: целостность структуры Markdown/JSON-примеров/локальных ссылок, `git diff --check`, контроль единственного изменённого документа. TypeScript/unit/build не запускались: код, зависимости и конфигурация приложения не менялись. Документ не является результатом нагрузочного теста или запущенного Backend.
 
 **Результат документа:** определены граница доверия, модульная архитектура, таблицы/связи/инварианты, пользовательские и административные API-контракты, версия банка и попыток, расчёт результатов, идемпотентность XP/Stars, импорт, эксплуатационные требования и последовательность внедрения. Никакие серверные функции этим изменением не включаются.
+
+### Реализованный срез 3b.2 (0006_import_staging)
+
+- POST `/api/v1/admin/imports?format=xlsx|docx` принимает raw binary после MFA/RBAC/CSRF
+  и сразу ставит DB job в очередь (не multipart и не отдельный upload-asset API).
+- GET `/admin/import-templates/{format}`, `/admin/imports`, `/admin/imports/{id}`,
+  `/{id}/rows`, `/{id}/report`; POST `/{id}/cancel`, `/{id}/retry`.
+  Полные пути содержат `/api/v1`; owner-editor/admin, content.import.manage.
+- Worker полностью проверяет файл, затем staging и атомарные пакеты до 100 draft.
+  Ошибочные строки не применяются, валидные сохраняются; никакой публикации.
+  Reports содержат координаты, ошибки, предупреждения и create/update/unchanged/duplicate/conflict.
+- import_jobs хранит SHA/template/actor, принятую MFA-команду без секретов, status/phase,
+  counters, attempts/lease token/lease_until/result_version и raw_deleted_at.
+  UNIQUE(actor,SHA,format,template). import_rows — UNIQUE(job,position), bounded JSONB,
+  topic/target/applied revision FK; import_content_keys — PK(topic,content_hash) для дедупа.
+  question_revisions.license_reference — новая nullable metadata column; 0001–0005 неизменны.
+- Raw terminal file TTL 30 дней через отдельную cleanup-команду; normalized staging,
+  отчёты и audit сохраняются. Lease fencing + singleton advisory lock, pool=2, retries≤3,
+  отмена сохраняет уже закоммиченные draft. Истечение пользовательской сессии после
+  приёма команды не аннулирует job; актуальные роли/блокировка проверяются по batch.
+- Плановые publish/confirmation поля и endpoints §5/9/11 относятся к будущему 3b.3;
+  структурная валидация и создание draft не являются подтверждением публикации.

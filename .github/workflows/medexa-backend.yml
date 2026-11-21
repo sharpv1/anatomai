@@ -7,7 +7,7 @@ on:
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
       - .github/workflows/medexa-backend.yml
   push:
-    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import, refactor/medexa-publication-policy]
+    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import, refactor/medexa-publication-policy, feature/medexa-import-staging]
     paths:
       - backend/**
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
@@ -72,3 +72,4 @@ jobs:
         run: |
           docker build --target runtime --tag medexa-foundation-ci:${{ github.sha }} .
           docker run --rm --network none --entrypoint python medexa-foundation-ci:${{ github.sha }} -c "from pathlib import Path; import app.main; assert not Path('/app/tests').exists(); assert not Path('/app/scripts').exists()"
+          docker run --rm --network none -i --entrypoint python medexa-foundation-ci:${{ github.sha }} - < scripts/runtime_smoke.py

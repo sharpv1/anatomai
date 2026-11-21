@@ -285,7 +285,6 @@ async def test_published_content_cannot_be_mutated_and_proposal_is_a_new_revisio
 async def test_import_review_publish_withdraw_and_roles_remain_closed_even_after_mfa(admin_clients):
     async with admin_clients("admin") as actor:
         for path in (
-            "imports",
             "assets",
             "notes",
             "jobs",

@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlsplit
 
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     csrf_signing_key: SecretStr | None = None
     content_cursor_signing_key: SecretStr | None = None
     content_asset_delivery_enabled: bool = False
+    import_storage_dir: Path | None = None
     mfa_encryption_key: SecretStr | None = None
     app_origin: str = "https://localhost"
     init_data_max_age_seconds: int = Field(default=300, ge=1, le=300)
@@ -48,6 +50,21 @@ class Settings(BaseSettings):
         if value is not None and len(value.get_secret_value().encode()) < 32:
             raise ValueError("Signing key must contain at least 32 bytes")
         return value
+
+    @field_validator("import_storage_dir", mode="before")
+    @classmethod
+    def import_directory(cls, value: object) -> object:
+        if value in (None, ""):
+            return None
+        path = Path(str(value))
+        if not path.is_absolute() or path in (
+            Path("/"),
+            Path("/tmp"),
+            Path("/app"),
+            Path("/workspace"),
+        ):
+            raise ValueError("Use a dedicated absolute private import directory")
+        return path
 
     @model_validator(mode="after")
     def independent_mfa_key(self) -> Self:
