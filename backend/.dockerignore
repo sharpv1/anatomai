@@ -9,3 +9,9 @@
 !.env.example
 dist
 *.egg-info
+**/*.pem
+**/*.key
+**/*.log
+FOUNDATION_REPORT.md
+IDENTITY.md
+IDENTITY_REPORT.md

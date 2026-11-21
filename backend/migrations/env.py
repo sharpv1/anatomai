@@ -9,6 +9,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import Settings
 from app.db.base import Base
 from app.db.models import IdempotencyRequest  # noqa: F401 -- register metadata
+from app.identity import models  # noqa: F401 -- register identity metadata
 
 target_metadata = Base.metadata
 

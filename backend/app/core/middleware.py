@@ -38,6 +38,8 @@ class RequestContextMiddleware:
                 headers = MutableHeaders(scope=message)
                 headers["X-Request-ID"] = request_id
                 headers["Cache-Control"] = "no-store"
+                headers["Referrer-Policy"] = "no-referrer"
+                headers["X-Content-Type-Options"] = "nosniff"
             await send(message)
 
         try:
