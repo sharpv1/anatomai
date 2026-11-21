@@ -157,13 +157,7 @@ class Asset(Base):
 
 class ContentSource(Base):
     __tablename__ = "content_sources"
-    __table_args__ = (
-        CheckConstraint(STATUS, name="status"),
-        CheckConstraint(
-            "created_by IS NULL OR reviewed_by IS NULL OR created_by <> reviewed_by",
-            name="independent_review",
-        ),
-    )
+    __table_args__ = (CheckConstraint(STATUS, name="status"),)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     created_by: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), index=True
@@ -226,7 +220,7 @@ class QuestionRevision(Base):
     source_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("content_sources.id", ondelete="RESTRICT")
     )
-    source_reference: Mapped[str] = mapped_column(Text, server_default="")
+    source_reference: Mapped[str | None] = mapped_column(Text().evaluates_none(), server_default="")
     source_page: Mapped[str | None] = mapped_column(String(128))
     created_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     medical_review_by: Mapped[UUID | None] = mapped_column(

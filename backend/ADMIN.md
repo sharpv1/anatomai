@@ -1,11 +1,11 @@
-# MEDEXA Backend 2.0 — 3b.1: MFA и медицинские черновики
+# MEDEXA Backend 2.0 — MFA, черновики и упрощённая политика вопросов
 
-Это **первая из трёх частей этапа 3b**, а не готовый импортёр.
-Основа — Content commit `62eb0e4cd95106080d8fb572eed27ae923307938`;
-Draft PR направлен в `feature/medexa-backend-content`.
+Реализованы 3b.1 (MFA/admin drafts) и редакция политики `0005_publication_policy`. Импорт и HTTP-публикация остаются этапами 3b.2–3b.3.
+Базовая реализация MFA/admin — `c1dbe0b438432b1666098e08ce7beae2a12efbf8`.
+Редакция политики создаётся отдельной веткой от этого коммита; база PR — `feature/medexa-backend-import`.
 Требования: [архитектура, §5/6/9/11–14](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
 
-В этом PR реализованы TOTP step-up, операторское enrollment/recovery, роли и
+Доступны TOTP step-up, операторское enrollment/recovery, роли и
 MFA-gated API для черновиков каталога, источников и вопросов. **Upload, XLSX/DOCX,
 quarantine/staging, worker, review/publish/withdraw, отчёты и экспорт не открыты.**
 Их URL отсутствуют; наличие роли или свежей MFA не включает эти функции.
@@ -13,19 +13,18 @@ quarantine/staging, worker, review/publish/withdraw, отчёты и экспо�
 
 ## Совместимость и миграция
 
-Новая head — `0004_admin` после неизменённых 0001–0003. Добавлены:
+Текущая head — `0005_publication_policy` после неизменённых 0001–0004. Этап 0004 добавил:
 
 - `admin_mfa_credentials`: encrypted secret, counter, credential epoch, rate-limit state;
 - `admin_recovery_codes`: SHA-256 хэши случайных одноразовых 128-bit кодов, epoch, used_at;
 - `admin_step_ups`: session/user composite FK, epoch, roles digest, verified/expires/revoked.
   Grant — временная составная запись сессии: её штатная TTL-очистка каскадно удаляет
   grant, сохраняя credential/recovery и append-only audit. Identity maintenance не менялся;
-- nullable `content_sources.created_by` + FK/index и запрет creator=reviewer при
-  заполненных полях. Старые источники получают NULL; авторство не выдумывается.
+- nullable `content_sources.created_by` + FK/index. Старые источники имеют NULL; авторство не выдумывается. Запрет creator=reviewer снят миграцией 0005.
 
 Контент, Identity, публичные DTO и данные исходного банка не переписываются.
 10 legacy вопросов остаются draft. Опубликованные revisions/options и их pointers
-сохраняют защиту 0003. Функция источника не заменяется, исходные миграции не правятся.
+сохраняют защиту 0003. 0005 удаляет обязательный source approval trigger и заменяет только question structural check; исходные миграции не правятся.
 До явного upgrade новый `/ready` вернёт 503. Автомиграций при startup нет.
 
 Запуск изолированной dev/test среды — по [README](README.md).
@@ -137,14 +136,14 @@ Editor читает/изменяет собственные drafts, видит p
 approved published sources. Чужой draft/source без права reviewer/admin →404.
 Reviewer читает все drafts; само наличие роли reviewer не даёт редактирование.
 Admin может исправить чужой draft, но становится его новым автором; медицинские
-approval поля всегда сбрасываются. На таксономию применяются общие staff permissions,
+исторические review-поля при правке draft очищаются. На таксономию применяются общие staff permissions,
 а не персональная ownership-модель. Вопросный текст не генерируется сервером.
 
 В body нельзя передать status, created_by, medical_review_by, reviewed_at,
 current_revision_id. Extra fields отвергаются. Один корректный key для single_choice,
 явные boolean is_correct, 2–8 вариантов, уникальные коды A–H и UTF-8 лимиты обязательны.
 Multiple choice допускается только как draft; публикация текущим клиентом запрещена.
-Отсутствующая лицензия явно хранится NULL, не выдаётся за проверенную.
+Отсутствующая лицензия хранится NULL и не блокирует создание или будущую публикацию вопроса.
 
 Каждая write транзакция проверяет `If-Match`, блокирует catalog_state и только затем
 меняет сущность. Получите текущий `ETag: "content-N"` из административного GET/list.
@@ -164,28 +163,51 @@ PATCH в этой версии принимает **полное replacement bod
 HTTP JSON остаётся ограничен **32 KiB целиком**, как в Identity. Upload exception
 для 10 MB не добавлен до защищённого streaming quarantine этапа 3b.2.
 
-## Что будет в следующих PR
+## Новая политика вопросов (0005)
 
-**3b.2 — staging/import, base 3b.1:** утверждённые versioned XLSX/DOCX-шаблоны §11;
-закрытый upload/quarantine, SHA-256/magic/type/package checks; запрет XLS/DOC/XLSM,
-макросов, external rels/embeds и формул (включая cached values); traversal/ZIP entries,
-ZIP bomb/unpacked limits; DB jobs/leases/cancel/reclaim/retry и bounded subprocess;
-строковый dry-run create/update/unchanged/conflict; безопасный CSV/XLSX report export.
-Утверждённые первичные границы не меняются: файл 10 MB, unpacked 50 MB, 5000 строк,
-60 секунд. Memory/ZIP-entry budget закрепить измерениями до открытия upload.
-Негативные кейсы spoofing, bombs, formulas, timeout/OOM, cancel и worker restart
-должны пройти на PostgreSQL 16. Никакого inline тяжёлого парсинга в HTTP.
+Можно создать draft сразу с текстом и вариантами, без записи Source. source_id,
+source_reference, source_page и license_reference необязательны. Пропуск/null/
+пустая строка метаданных принимаются; пустые строки нормализуются в null. Если source_id
+передан, проверяются его существование и права доступа. Подставных источников нет.
 
-**3b.3 — review/publish, base 3b.2:** immutable approval конкретного fingerprint,
-reviewer != author/last editor, отдельные approve/publish шаги; source/license gate;
-atomic batches ≤100, permanent row applied_revision_id и идемпотентность; partial
-failure/applied/pending/failed status; повтор worker не дублирует revisions;
-withdraw и audit восстановления pointer на допустимую approved revision.
-Не меняются исторические attempts; exam-safe DTO продолжают исключать ключи.
+В БД отменены обязательные reviewer/лицензия/источник для публикации вопросов.
+Структурный gate сохраняет 2–8 непустых вариантов, ровно один правильный single_choice,
+разрешённый kind и размеры текста. Multiple choice пока только draft. Published/withdrawn
+редакции и варианты неизменяемы, current pointer принадлежит тому же вопросу.
+Старые review-поля и реальные данные остаются нетронутыми. Сам факт публикации не
+маркируется как фиктивное medical approval. Миграция не меняет статусы и ничего не публикует автоматически. Уже published вопросы с отсутствующими/draft/withdrawn citation metadata теперь доступны по статусу вопроса и его родителей; это изменение read eligibility, а не создание новой публикации.
 
-Ни один из этих будущих endpoints не зарегистрирован в текущем router.
+Уполномоченная роль content_editor получает publishing capability для своих вопросов;
+admin может публиковать свои/доступные drafts. Существующая content_reviewer сохраняется
+для совместимости, но её участие не является условием. Публикация набора импорта требует
+отдельного content.import.publish (admin). MFA/CSRF/ownership/audit обязательны.
+В текущем HTTP router publishing permissions по-прежнему fail-closed до 3b.3.
+
+**3b.2 — staging/import:** versioned XLSX/DOCX §11; citation/license столбцы необязательны
+и могут отсутствовать. SHA/type/quarantine/ZIP/formula guards, bounded DB worker,
+row-level errors/create/update/unchanged/conflict, safe export, cancel/reclaim/retry.
+Границы: 10 MB файл, 50 MB unpacked, 5000 строк, 60 секунд; память/ZIP entries — по замерам.
+Успешный parse/dry-run не публикует данные, ошибки структуры блокируют набор.
+
+**3b.3 — explicit publish:** отдельного reviewer/approve шага нет. Editor/admin явно
+публикует допустимый собственный вопрос; набор публикуется по admin confirmation,
+привязанному к hash актуального dry-run/file/template, с If-Match и Idempotency-Key.
+Изменение набора требует повторного подтверждения. Worker не хранит OTP/initData.
+Батчи ≤100 атомарны, permanent dedupe/applied_revision_id предотвращают повторы;
+отчёт различает applied/pending/failed, cancel не переписывает применённую историю.
+Withdraw/restore меняют только допустимые pointers/status с аудитом.
+
+HTTP upload/import/publish/withdraw/restore пока отсутствуют. Реализуется политика и
+подготовка существующих draft DTO/read models; полный pipeline не объявляется готовым.
 
 ## Откат и безопасность эксплуатации
+
+0005→0004 разрешён только для данных, совместимых с прежней политикой. Если есть null
+source_reference, published вопрос без прежнего provenance/reviewer или несовместимые
+source review metadata, downgrade завершается ошибкой **до DDL**, не выдумывает источники
+и не переписывает published историю. Используйте forward fix/совместимый backup.
+Upgrade/downgrade политики повышает catalog_version: клиентские курсоры нужно перезагрузить.
+
 
 Предпочтителен forward fix. Destructive downgrade `0004_admin→0003_content` только
 в изолированной новой БД после backup: он удаляет MFA credentials/grants/recovery

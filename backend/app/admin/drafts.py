@@ -230,7 +230,9 @@ async def catalog_archive(request: Request, response: Response, model: Any, enti
     )
 
 
-async def allowed_source(request: Request, source_id: UUID) -> None:
+async def allowed_source(request: Request, source_id: UUID | None) -> None:
+    if source_id is None:
+        return
     source = await catalog_item(request, ContentSource, source_id)
     if source.status == "withdrawn":
         raise not_found()

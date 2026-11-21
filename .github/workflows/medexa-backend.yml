@@ -7,7 +7,7 @@ on:
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
       - .github/workflows/medexa-backend.yml
   push:
-    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import]
+    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity, feature/medexa-backend-content, feature/medexa-backend-import, refactor/medexa-publication-policy]
     paths:
       - backend/**
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md

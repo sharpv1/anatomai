@@ -77,12 +77,10 @@ def visible_questions() -> Select[Any]:
                 QuestionRevision.question_id == Question.id,
             ),
         )
-        .join(ContentSource, ContentSource.id == QuestionRevision.source_id)
         .where(
             Question.archived_at.is_(None),
             QuestionRevision.status == "published",
             QuestionRevision.kind == "single_choice",
-            ContentSource.status == "published",
         )
     )
 
