@@ -1,6 +1,6 @@
-# MEDEXA Backend 2.0 — Foundation + Identity + Content
+# MEDEXA Backend 2.0 — Foundation + Identity + Content + Admin MFA
 
-Независимый Backend, этапы 1–3a [архитектуры](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
+Независимый Backend, этапы 1–3a и 3b.1 [архитектуры](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
 Python 3.12, FastAPI, Pydantic Settings 2, SQLAlchemy 2 async/asyncpg, PostgreSQL 16,
 Alembic. Существующий Frontend и старые серверы не подключены.
 
@@ -27,6 +27,11 @@ production-конфигурации или интеграции с React.
 с произвольным actor_id нет. `/live` и `/ready` выбраны согласно заданию этапа 1;
 в архитектурном реестре использовались более длинные `/health/*`.
 
+Текущая head — `0004_admin`. Добавлен MFA-gated API медицинских черновиков и
+операторское TOTP enrollment/recovery: [ADMIN.md](ADMIN.md). Это только **3b.1**;
+импорт/worker/review/publish ещё закрыты. Content.md/CONTENT_REPORT.md описывают
+исторический этап 3a; публичные контракты совместимы.
+
 ## Конфигурация
 
 Все настройки читаются из переменных `MEDEXA_*`; `.env` автоматически приложением
@@ -43,6 +48,7 @@ production-конфигурации или интеграции с React.
 | `MEDEXA_READINESS_TIMEOUT_SECONDS` | 3; общий timeout readiness, включая ожидание pool |
 | `MEDEXA_CONTENT_CURSOR_SIGNING_KEY` | Отдельный ≥32 байт ключ курсоров; пустой отключает Content API |
 | `MEDEXA_CONTENT_ASSET_DELIVERY_ENABLED` | false; включать только с отдельным internal Nginx location |
+| `MEDEXA_MFA_ENCRYPTION_KEY` | Отдельный Fernet key; пустой отключает step-up |
 | `MEDEXA_LOG_LEVEL` | INFO по умолчанию |
 | `MEDEXA_DEV_API_PORT` | Только Compose: loopback port, по умолчанию 18081 |
 | `MEDEXA_TEST_DB_PASSWORD` | Только test Compose: одноразовый пароль |

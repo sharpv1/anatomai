@@ -28,4 +28,5 @@ def test_content_roundtrip_preserves_identity(migrated_database, alembic_config,
     assert asyncio.run(identity_snapshot()) == before
     command.upgrade(alembic_config, "0003_content")
     assert asyncio.run(identity_snapshot()) == before
+    command.upgrade(alembic_config, "head")
     command.check(alembic_config)

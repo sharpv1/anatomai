@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.admin import models as admin_models  # noqa: F401 -- metadata
 from app.content import models as content_models  # noqa: F401 -- metadata
 from app.content.models import (
     Category,
@@ -228,3 +229,87 @@ async def content_data(database, make_actor):
             options=options,
             suffix=suffix,
         )
+
+
+@pytest.fixture
+async def admin_clients(database, db_settings, monkeypatch):
+    from contextlib import asynccontextmanager
+    from datetime import timedelta
+    from unittest.mock import patch
+
+    from admin_helpers import MFA_KEY, TOTP_SECRET, AdminActor
+    from httpx import ASGITransport, AsyncClient
+    from identity_helpers import ORIGIN, TEST_BOT_TOKEN, TEST_CSRF_KEY, signed_data
+    from pydantic import SecretStr
+
+    from app.admin.mfa import MFA_ROLES, provision, totp
+    from app.main import create_app
+
+    monkeypatch.setattr("app.main.configure_logging", lambda level: None)
+    clock = [datetime.now(UTC)]
+    monkeypatch.setattr("app.admin.mfa.utcnow", lambda: clock[0])
+    settings = db_settings.model_copy(
+        update={
+            "telegram_bot_token": SecretStr(TEST_BOT_TOKEN),
+            "csrf_signing_key": SecretStr(TEST_CSRF_KEY),
+            "content_cursor_signing_key": SecretStr("synthetic-cursor-key-" + "s" * 40),
+            "mfa_encryption_key": SecretStr(MFA_KEY),
+            "app_origin": ORIGIN,
+            "login_rate_limit": 100,
+        }
+    )
+
+    @asynccontextmanager
+    async def make(role="content_editor", *, confirmed=True, enrolled=True):
+        user_id, telegram_id = uuid4(), uuid4().int % (2**62) + 1
+        async with database.sessions.begin() as db:
+            db.add(User(id=user_id, telegram_user_id=telegram_id))
+            await db.flush()
+            db.add(UserRole(user_id=user_id, role_code=role))
+        try:
+            codes = []
+            if enrolled and role in MFA_ROLES:
+                previous = clock[0] - timedelta(seconds=60)
+                with patch("app.admin.mfa.utcnow", lambda: previous):
+                    async with database.sessions.begin() as db:
+                        codes = await provision(
+                            db,
+                            settings,
+                            telegram_id,
+                            TOTP_SECRET,
+                            totp(TOTP_SECRET, int(previous.timestamp()) // 30),
+                        )
+            app = create_app(settings)
+            async with app.router.lifespan_context(app):
+                async with AsyncClient(transport=ASGITransport(app=app), base_url=ORIGIN) as client:
+                    response = await client.post(
+                        "/api/v1/auth/telegram",
+                        json={"init_data": signed_data(telegram_id)},
+                        headers={"Origin": ORIGIN},
+                    )
+                    assert response.status_code == 200, response.text
+                    headers = {
+                        "Origin": ORIGIN,
+                        "X-CSRF-Token": response.json()["data"]["csrf_token"],
+                    }
+                    actor = AdminActor(
+                        client, user_id, telegram_id, headers, app, settings, clock, codes
+                    )
+                    if confirmed:
+                        response = await client.post(
+                            "/api/v1/admin/auth/step-up",
+                            json={"code": actor.code()},
+                            headers=headers,
+                        )
+                        assert response.status_code == 200, response.text
+                        actor.grant = response.json()["data"]
+                    yield actor
+        finally:
+            from sqlalchemy import delete
+
+            # Fixture roles must not leak into the existing singleton-admin bootstrap tests.
+            # Keep users/revisions/audit history intact, just retire this actor's test roles.
+            async with database.sessions.begin() as db:
+                await db.execute(delete(UserRole).where(UserRole.user_id == user_id))
+
+    return make
