@@ -1,7 +1,7 @@
-from typing import Literal
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     csrf_signing_key: SecretStr | None = None
     content_cursor_signing_key: SecretStr | None = None
     content_asset_delivery_enabled: bool = False
+    mfa_encryption_key: SecretStr | None = None
     app_origin: str = "https://localhost"
     init_data_max_age_seconds: int = Field(default=300, ge=1, le=300)
     session_absolute_seconds: int = Field(default=604800, ge=60, le=604800)
@@ -31,7 +32,11 @@ class Settings(BaseSettings):
     login_rate_limit: int = Field(default=10, ge=1, le=100)
 
     @field_validator(
-        "telegram_bot_token", "csrf_signing_key", "content_cursor_signing_key", mode="before"
+        "telegram_bot_token",
+        "csrf_signing_key",
+        "content_cursor_signing_key",
+        "mfa_encryption_key",
+        mode="before",
     )
     @classmethod
     def blank_secret_is_disabled(cls, value: object) -> object:
@@ -42,6 +47,33 @@ class Settings(BaseSettings):
     def strong_signing_key(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None and len(value.get_secret_value().encode()) < 32:
             raise ValueError("Signing key must contain at least 32 bytes")
+        return value
+
+    @model_validator(mode="after")
+    def independent_mfa_key(self) -> Self:
+        if self.mfa_encryption_key is not None:
+            key = self.mfa_encryption_key.get_secret_value()
+            if any(
+                other is not None and key == other.get_secret_value()
+                for other in (
+                    self.telegram_bot_token,
+                    self.csrf_signing_key,
+                    self.content_cursor_signing_key,
+                )
+            ):
+                raise ValueError("MFA requires its own encryption key")
+        return self
+
+    @field_validator("mfa_encryption_key")
+    @classmethod
+    def fernet_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None:
+            from cryptography.fernet import Fernet
+
+            try:
+                Fernet(value.get_secret_value().encode("ascii"))
+            except (ValueError, UnicodeError):
+                raise ValueError("Use a separate Fernet MFA encryption key") from None
         return value
 
     @field_validator("telegram_bot_token")

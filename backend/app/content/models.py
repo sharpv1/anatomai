@@ -157,8 +157,17 @@ class Asset(Base):
 
 class ContentSource(Base):
     __tablename__ = "content_sources"
-    __table_args__ = (CheckConstraint(STATUS, name="status"),)
+    __table_args__ = (
+        CheckConstraint(STATUS, name="status"),
+        CheckConstraint(
+            "created_by IS NULL OR reviewed_by IS NULL OR created_by <> reviewed_by",
+            name="independent_review",
+        ),
+    )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    created_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
     slug: Mapped[str] = mapped_column(String(128), unique=True)
     title: Mapped[str] = mapped_column(String(512))
     attribution: Mapped[str] = mapped_column(Text)

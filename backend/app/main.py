@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
+from app.admin.api import router as admin_router
+from app.admin.auth_api import router as mfa_router
 from app.api.health import router
 from app.content.api import router as content_router
 from app.core.config import Settings
@@ -45,4 +47,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(identity_router)
     app.include_router(content_router)
+    app.include_router(mfa_router)
+    app.include_router(admin_router)
     return app
