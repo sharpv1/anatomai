@@ -1,6 +1,7 @@
 import asyncio
 import os
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from alembic import command
@@ -10,7 +11,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import Settings
+from app.db.base import Base
 from app.db.database import Database
+from app.identity.models import User
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -53,8 +56,9 @@ def migrated_database(alembic_config, db_settings):
                 unexpected = await connection.scalars(
                     text(
                         "SELECT tablename FROM pg_tables WHERE schemaname='public' "
-                        "AND tablename NOT IN ('alembic_version', 'idempotency_requests')"
-                    )
+                        "AND NOT(tablename = ANY(:allowed))"
+                    ),
+                    {"allowed": ["alembic_version", *Base.metadata.tables]},
                 )
                 assert not unexpected.all(), "Refusing to modify a database with unrelated tables"
         finally:
@@ -71,3 +75,19 @@ async def database(migrated_database, db_settings):
         yield database
     finally:
         await database.dispose()
+
+
+@pytest.fixture
+async def make_actor(database):
+    async def make():
+        user = User(id=uuid4(), telegram_user_id=uuid4().int % (2**62) + 1)
+        async with database.sessions.begin() as db:
+            db.add(user)
+        return user.id
+
+    return make
+
+
+@pytest.fixture
+async def actor(make_actor):
+    return await make_actor()

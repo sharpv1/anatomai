@@ -12,6 +12,9 @@ x-runtime: &runtime
     MEDEXA_DB_USER: medexa_foundation
     MEDEXA_DB_PASSWORD: ${MEDEXA_DB_PASSWORD:?Set a local password in backend/.env}
     MEDEXA_LOG_LEVEL: INFO
+    MEDEXA_TELEGRAM_BOT_TOKEN: ${MEDEXA_TELEGRAM_BOT_TOKEN:-}
+    MEDEXA_CSRF_SIGNING_KEY: ${MEDEXA_CSRF_SIGNING_KEY:-}
+    MEDEXA_APP_ORIGIN: ${MEDEXA_APP_ORIGIN:-https://localhost}
   networks: [foundation]
   init: true
   security_opt: [no-new-privileges:true]

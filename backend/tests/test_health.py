@@ -7,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.api.health import database_dependency
 from app.core.errors import ApplicationError
+from app.identity.dependencies import enforce_access
 from app.main import create_app
 
 
@@ -14,6 +15,7 @@ from app.main import create_app
 async def client(settings, monkeypatch):
     monkeypatch.setattr("app.main.configure_logging", lambda level: None)
     app = create_app(settings)
+    app.dependency_overrides[enforce_access] = lambda: None
     fake = AsyncMock()
     fake.check_ready.return_value = None
     app.dependency_overrides[database_dependency] = lambda: fake

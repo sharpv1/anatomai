@@ -7,7 +7,7 @@ on:
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
       - .github/workflows/medexa-backend.yml
   push:
-    branches: [feature/medexa-backend-foundation]
+    branches: [feature/medexa-backend-foundation, feature/medexa-backend-identity]
     paths:
       - backend/**
       - docs/MEDEXA_BACKEND_ARCHITECTURE.md
@@ -69,4 +69,6 @@ jobs:
           docker compose -f compose.dev.yaml config --quiet
           docker compose -f compose.test.yaml config --quiet
       - name: Build non-root runtime image (no deployment)
-        run: docker build --target runtime --tag medexa-foundation-ci:${{ github.sha }} .
+        run: |
+          docker build --target runtime --tag medexa-foundation-ci:${{ github.sha }} .
+          docker run --rm --network none --entrypoint python medexa-foundation-ci:${{ github.sha }} -c "from pathlib import Path; import app.main; assert not Path('/app/tests').exists(); assert not Path('/app/scripts').exists()"

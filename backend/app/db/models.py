@@ -2,7 +2,16 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from pydantic import JsonValue
-from sqlalchemy import CheckConstraint, DateTime, Index, Integer, String, UniqueConstraint, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,8 +36,7 @@ class IdempotencyRequest(Base):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    # The identity module will add a users FK; there is no public endpoint accepting actor_id.
-    actor_id: Mapped[UUID]
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     operation: Mapped[str] = mapped_column(String(128))
     key: Mapped[UUID]
     request_hash: Mapped[str] = mapped_column(String(64))

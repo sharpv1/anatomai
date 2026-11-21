@@ -1,6 +1,6 @@
-# MEDEXA Backend 2.0 — foundation
+# MEDEXA Backend 2.0 — foundation + Identity
 
-Независимый Backend, этап 1 [архитектуры](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
+Независимый Backend, этапы 1–2 [архитектуры](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
 Python 3.12, FastAPI, Pydantic Settings 2, SQLAlchemy 2 async/asyncpg, PostgreSQL 16,
 Alembic. Существующий Frontend и старые серверы не подключены.
 
@@ -14,11 +14,13 @@ Alembic. Существующий Frontend и старые серверы не �
   `X-Request-ID` и `Cache-Control: no-store`.
 - Транзакционный PostgreSQL primitive идемпотентности: scope actor/operation/key,
   hash JSON, replay, конфликт payload, TTL, атомарный rollback.
-- Начальная миграция создаёт **только** `idempotency_requests` и её ограничения.
-  `actor_id` пока без FK: модуль identity и FK users появятся на этапе 2.
+- `0001_foundation` создаёт идемпотентность; `0002_identity` добавляет пользователей,
+  роли, сессии, replay-защиту, неизменяемый аудит и FK actor_id → users.
+- Telegram HMAC, HttpOnly-сессии, CSRF/Origin, RBAC и операторский bootstrap.
+  Контракты, настройки и ограничения: [IDENTITY.md](IDENTITY.md).
 
-Нет авторизации, вопросов, XP, платежей, worker, production-конфигурации или
-интеграции с React. Идемпотентность — внутренний сервис, публичного HTTP endpoint
+Нет вопросов, XP, платежей, worker, production-конфигурации или интеграции с React.
+Авторизация выключена (503), пока не заданы собственные bot token и CSRF key. Идемпотентность — внутренний сервис, публичного HTTP endpoint
 с произвольным actor_id нет. `/live` и `/ready` выбраны согласно заданию этапа 1;
 в архитектурном реестре использовались более длинные `/health/*`.
 
@@ -147,8 +149,9 @@ request-specific meta. Последующие этапы добавят тран
 
 ## Ограничения безопасности и следующая работа
 
-- Это dev/test foundation, не production-ready сервис: пока нет auth/CSRF/RBAC,
-  rate limits, Nginx/TLS, аудита пользователей, offsite backups или мониторинга.
+- Это dev/test Backend, не production-ready сервис: HMAC/CSRF/RBAC и аудит есть,
+  но нет Nginx/TLS конфигурации, admin MFA, offsite backups или мониторинга.
+  Rate limit login ограничен одним процессом; внешний gateway ещё не настроен.
 - Не публиковать API/Swagger в интернет. Никаких реальных Telegram tokens или
   медицинских/платёжных данных для проверки этого этапа не требуется.
 - JSON formatter намеренно отбрасывает произвольные сообщения библиотек и
@@ -161,11 +164,14 @@ request-specific meta. Последующие этапы добавят тран
   downgrade нельзя переносить на production как стратегию восстановления.
 - Контейнерные лимиты не означают измеренную вместимость VPS; текущие image tags
   следует закрепить digest после выбора production image и security review.
-- Следующий этап: Telegram HMAC, сессии/RBAC, users FK; бизнес-функции пока выключены.
+- Следующий этап: read-only каталог/контент. Admin HTTP-мутации закрыты до MFA.
+- Runtime-образ не содержит tests/ и синтетических signing fixtures; они копируются
+  только в test target.
 
 ## Проверки, RAM и откат
 
-Фактические результаты реализации и замеры приведены в [FOUNDATION_REPORT.md](FOUNDATION_REPORT.md).
+Результаты этапа 2: [IDENTITY_REPORT.md](IDENTITY_REPORT.md). Исторические результаты
+этапа 1 и его замеры: [FOUNDATION_REPORT.md](FOUNDATION_REPORT.md).
 До появления отчёта RAM на целевом VPS не считается измеренной.
 
 Откат этой ветки — остановить **только её** Compose project и вернуться к исходному

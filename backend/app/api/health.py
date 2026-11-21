@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.errors import ApplicationError
 from app.db.database import Database
+from app.identity.policy import access
 
 router = APIRouter(tags=["health"])
 logger = logging.getLogger(__name__)
@@ -42,11 +43,13 @@ def health_response(request: Request, status: Literal["alive", "ready"]) -> Heal
 
 
 @router.get("/live", response_model=HealthResponse)
+@access("public.health")
 async def live(request: Request) -> HealthResponse:
     return health_response(request, "alive")
 
 
 @router.get("/ready", response_model=HealthResponse)
+@access("public.health")
 async def ready(
     request: Request, database: Annotated[Database, Depends(database_dependency)]
 ) -> HealthResponse:
