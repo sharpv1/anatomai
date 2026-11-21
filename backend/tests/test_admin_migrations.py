@@ -23,6 +23,11 @@ def test_admin_downgrade_preserves_content_and_identity(
                                 text(
                                     f"SELECT (to_jsonb(t) - 'created_by')::text FROM {table} t"
                                     if table == "content_sources"
+                                    else (
+                                        "SELECT (to_jsonb(t) - 'license_reference')::text "
+                                        f"FROM {table} t"
+                                    )
+                                    if table == "question_revisions"
                                     else f"SELECT to_jsonb(t)::text FROM {table} t"
                                 )
                             )

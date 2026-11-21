@@ -1,7 +1,5 @@
 """Draft-only operations. No review, publication, pointer restoration or file handling."""
 
-import hashlib
-import json
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -12,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.admin.schemas import QuestionBody, QuestionCreate
 from app.content.cursors import normalize
+from app.content.fingerprints import fingerprint
 from app.content.models import (
     CatalogState,
     ContentSource,
@@ -294,6 +293,7 @@ async def revision_data(request: Request, revision: QuestionRevision) -> dict[st
         "source_id": revision.source_id,
         "source_reference": revision.source_reference,
         "source_page": revision.source_page,
+        "license_reference": revision.license_reference,
         "created_by": revision.created_by,
         "medical_review_by": revision.medical_review_by,
         "options": [
@@ -352,20 +352,21 @@ async def save_revision(
             ) + 1
         revision = QuestionRevision(id=uuid4(), question_id=question_id, revision_number=number)
         db.add(revision)
-    for name in ("kind", "text", "explanation", "source_id", "source_reference", "source_page"):
+    for name in (
+        "kind",
+        "text",
+        "explanation",
+        "source_id",
+        "source_reference",
+        "source_page",
+        "license_reference",
+    ):
         setattr(revision, name, getattr(body, name))
     revision.created_by = current_identity(request).user.id
     revision.medical_review_by = None
     revision.reviewed_at = None
     revision.status = "draft"
-    revision.fingerprint = hashlib.sha256(
-        json.dumps(
-            body.model_dump(mode="json", exclude={"external_id"}),
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode()
-    ).hexdigest()
+    revision.fingerprint = fingerprint(body)
     await flush(request)
     db.add_all(
         [

@@ -20,7 +20,16 @@ def test_policy_migration_preserves_rows_and_invalidates_catalog_cursors(
                 rows = {
                     table: sorted(
                         (
-                            await session.scalars(text(f"SELECT to_jsonb(t)::text FROM {table} t"))
+                            await session.scalars(
+                                text(
+                                    (
+                                        "SELECT (to_jsonb(t) - 'license_reference')::text "
+                                        f"FROM {table} t"
+                                    )
+                                    if table == "question_revisions"
+                                    else f"SELECT to_jsonb(t)::text FROM {table} t"
+                                )
+                            )
                         ).all()
                     )
                     for table in (

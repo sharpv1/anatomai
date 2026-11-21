@@ -5,8 +5,14 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 
 request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
-_EVENTS = {"http_request", "request_failed", "readiness_failed"}
-_SAFE_FIELDS = ("method", "route", "status", "duration_ms", "error_type", "code")
+_EVENTS = {
+    "http_request",
+    "request_failed",
+    "readiness_failed",
+    "import_processing_failed",
+    "import_job_finished",
+}
+_SAFE_FIELDS = ("method", "route", "status", "duration_ms", "error_type", "code", "job_id")
 
 
 class JsonFormatter(logging.Formatter):

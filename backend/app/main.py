@@ -15,6 +15,7 @@ from app.db.database import Database
 from app.identity.api import router as identity_router
 from app.identity.dependencies import enforce_access
 from app.identity.security import IdentityRequestMiddleware
+from app.imports.api import router as imports_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -49,4 +50,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(content_router)
     app.include_router(mfa_router)
     app.include_router(admin_router)
+    app.include_router(imports_router)
     return app

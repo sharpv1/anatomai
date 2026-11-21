@@ -14,7 +14,8 @@ RUN --mount=type=bind,source=.,target=/source,readonly \
     cp -R /source/app /source/migrations /app/; \
     cp /source/pyproject.toml /source/uv.lock /source/README.md /source/alembic.ini /app/; \
     if [ -f /run/secrets/package_ca ]; then export SSL_CERT_FILE=/run/secrets/package_ca; fi; \
-    uv sync --frozen --no-dev --no-editable; uv cache clean; chown -R 10001:10001 /app
+    uv sync --frozen --no-dev --no-editable; uv cache clean; mkdir -p /var/lib/medexa-imports; chmod 700 /var/lib/medexa-imports; \
+    chown -R 10001:10001 /app /var/lib/medexa-imports
 USER 10001:10001
 EXPOSE 8000
 CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log", "--no-proxy-headers"]

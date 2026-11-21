@@ -1,6 +1,6 @@
 # MEDEXA Backend 2.0 — Foundation + Identity + Content + Admin MFA
 
-Независимый Backend, этапы 1–3a и 3b.1 [архитектуры](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
+Независимый Backend, этапы 1–3a и 3b.1–3b.2 [архитектуры](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
 Python 3.12, FastAPI, Pydantic Settings 2, SQLAlchemy 2 async/asyncpg, PostgreSQL 16,
 Alembic. Существующий Frontend и старые серверы не подключены.
 
@@ -21,15 +21,15 @@ Alembic. Существующий Frontend и старые серверы не �
 
 Добавлен read-only Content API и `0003_content`; контракт, публикационные инварианты,
 quarantine исходного банка и файловая доставка описаны в [CONTENT.md](CONTENT.md).
-Десять исходных вопросов только в draft. Нет движка попыток, XP, платежей, worker,
+Десять исходных вопросов только в draft. Нет движка попыток, XP, платежей,
 production-конфигурации или интеграции с React.
 Авторизация выключена (503), пока не заданы собственные bot token и CSRF key. Идемпотентность — внутренний сервис, публичного HTTP endpoint
 с произвольным actor_id нет. `/live` и `/ready` выбраны согласно заданию этапа 1;
 в архитектурном реестре использовались более длинные `/health/*`.
 
-Текущая head — `0005_publication_policy`. Источники/лицензии и второй reviewer для вопросов необязательны; новая политика описана в архитектуре и ADMIN.md. Добавлен MFA-gated API медицинских черновиков и
-операторское TOTP enrollment/recovery: [ADMIN.md](ADMIN.md). Это только **3b.1**;
-импорт/worker/publish ещё закрыты; отдельный review вопросов больше не требуется. Content.md/CONTENT_REPORT.md описывают
+Текущая head — `0006_import_staging`. Источники/лицензии и второй reviewer для вопросов необязательны; новая политика описана в архитектуре и ADMIN.md. Добавлен MFA-gated API медицинских черновиков и
+операторское TOTP enrollment/recovery: [ADMIN.md](ADMIN.md). Импорт/DB worker/CSV reports реализованы в **3b.2**: [IMPORTS.md](IMPORTS.md).
+Publish ещё закрыт до 3b.3; отдельный review вопросов не требуется. Content.md/CONTENT_REPORT.md описывают
 исторический этап 3a; публичные контракты совместимы.
 
 ## Конфигурация
@@ -190,3 +190,8 @@ release commit. Никаких изменений Frontend, production/preview C
 существующей БД этот этап не требует. Не удаляйте чужие volumes/images через
 `docker system prune`. Удаление нового dev volume допустимо только отдельно после
 проверки его project label и при отсутствии нужных данных.
+
+### Приватный импорт 3b.2
+
+Миграция 0006; инструкции, шаблоны, worker, ограничения и откат — [IMPORTS.md](IMPORTS.md).
+Загрузка создаёт только draft. Публикация, платежи и изменения Frontend не добавлены.

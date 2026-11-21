@@ -76,12 +76,15 @@ class QuestionBody(Body):
     kind: Literal["single_choice", "multiple_choice"] = "single_choice"
     text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8000)]
     explanation: Annotated[str, StringConstraints(max_length=16000)] | None = None
+    license_reference: Text | None = None
     source_id: UUID | None = None
     source_reference: Text | None = None
     source_page: Annotated[str, StringConstraints(max_length=128)] | None = None
     options: Annotated[list[OptionBody], Field(min_length=2, max_length=8)]
 
-    @field_validator("source_id", "source_reference", "source_page", mode="before")
+    @field_validator(
+        "source_id", "source_reference", "source_page", "license_reference", mode="before"
+    )
     @classmethod
     def optional_metadata(cls, value: object) -> object:
         if isinstance(value, str):

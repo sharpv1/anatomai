@@ -3,9 +3,11 @@ from typing import TypeVar
 
 from app.core.errors import ApplicationError
 
-# Only implemented medical-draft routes can consume a verified MFA grant.
-# Publish/review/import/roles/payment permissions remain fail-closed.
-MFA_HTTP_PERMISSIONS = frozenset({"content.admin.read", "content.draft.write"})
+# Only implemented draft/staging routes can consume a verified MFA grant.
+# Publish/review/roles/payment permissions remain fail-closed.
+MFA_HTTP_PERMISSIONS = frozenset(
+    {"content.admin.read", "content.draft.write", "content.import.manage"}
+)
 
 F = TypeVar("F", bound=Callable[..., object])
 SELF_PERMISSIONS = frozenset(
@@ -20,7 +22,13 @@ SELF_PERMISSIONS = frozenset(
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "student": SELF_PERMISSIONS,
     "content_editor": SELF_PERMISSIONS
-    | {"content.draft.write", "content.admin.read", "content.publish", "admin.step_up"},
+    | {
+        "content.draft.write",
+        "content.admin.read",
+        "content.publish",
+        "admin.step_up",
+        "content.import.manage",
+    },
     "content_reviewer": SELF_PERMISSIONS
     | {"content.publish", "content.admin.read", "admin.step_up"},
     "support": SELF_PERMISSIONS | {"support.read"},
@@ -33,6 +41,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "admin.step_up",
         "content.publish",
         "content.import.publish",
+        "content.import.manage",
         "support.read",
         "billing.manage",
     },

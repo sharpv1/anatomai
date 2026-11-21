@@ -1,19 +1,19 @@
 # MEDEXA Backend 2.0 — MFA, черновики и упрощённая политика вопросов
 
-Реализованы 3b.1 (MFA/admin drafts) и редакция политики `0005_publication_policy`. Импорт и HTTP-публикация остаются этапами 3b.2–3b.3.
+Реализованы 3b.1 (MFA/admin drafts) и редакция политики `0005_publication_policy`. Этап 3b.2 добавляет приватный импорт в draft; HTTP-публикация остаётся этапом 3b.3.
 Базовая реализация MFA/admin — `c1dbe0b438432b1666098e08ce7beae2a12efbf8`.
-Редакция политики создаётся отдельной веткой от этого коммита; база PR — `feature/medexa-backend-import`.
+Импорт 3b.2 создан от `d190b9d`; база PR — `refactor/medexa-publication-policy`.
 Требования: [архитектура, §5/6/9/11–14](../docs/MEDEXA_BACKEND_ARCHITECTURE.md).
 
 Доступны TOTP step-up, операторское enrollment/recovery, роли и
-MFA-gated API для черновиков каталога, источников и вопросов. **Upload, XLSX/DOCX,
-quarantine/staging, worker, review/publish/withdraw, отчёты и экспорт не открыты.**
-Их URL отсутствуют; наличие роли или свежей MFA не включает эти функции.
+MFA-gated API для черновиков каталога, источников и вопросов. Импорт XLSX/DOCX, quarantine/staging, worker и CSV-отчёты реализованы в 3b.2;
+инструкция, шаблоны и API — [IMPORTS.md](IMPORTS.md). **Review/publish/withdraw HTTP
+не открыты**; наличие роли/MFA не включает публикацию.
 Движок попыток, XP, платежи и интеграция Frontend также не добавлены.
 
 ## Совместимость и миграция
 
-Текущая head — `0005_publication_policy` после неизменённых 0001–0004. Этап 0004 добавил:
+Текущая head — `0006_import_staging` после неизменённых 0001–0005. Этап 0004 добавил:
 
 - `admin_mfa_credentials`: encrypted secret, counter, credential epoch, rate-limit state;
 - `admin_recovery_codes`: SHA-256 хэши случайных одноразовых 128-bit кодов, epoch, used_at;
@@ -160,8 +160,9 @@ PATCH в этой версии принимает **полное replacement bod
 аудит содержит actor/action/target/request_id без копирования медицинского текста
 или MFA secret. Content mutation и audit коммитятся атомарно.
 
-HTTP JSON остаётся ограничен **32 KiB целиком**, как в Identity. Upload exception
-для 10 MB не добавлен до защищённого streaming quarantine этапа 3b.2.
+HTTP JSON остаётся ограничен **32 KiB целиком**, как в Identity. Исключение —
+точный POST /api/v1/admin/imports: до 10 MiB, streaming **после** MFA/RBAC/CSRF,
+без разбора ZIP/XML в запросе. Шаблоны/отчёты/rows — также MFA-gated.
 
 ## Новая политика вопросов (0005)
 
@@ -187,7 +188,8 @@ admin может публиковать свои/доступные drafts. Су
 и могут отсутствовать. SHA/type/quarantine/ZIP/formula guards, bounded DB worker,
 row-level errors/create/update/unchanged/conflict, safe export, cancel/reclaim/retry.
 Границы: 10 MB файл, 50 MB unpacked, 5000 строк, 60 секунд; память/ZIP entries — по замерам.
-Успешный parse/dry-run не публикует данные, ошибки структуры блокируют набор.
+Успешный parse создаёт только draft; ошибочные строки не применяются.
+Наличие ошибок блокирует будущую публикацию набора, а не сохранение валидных draft.
 
 **3b.3 — explicit publish:** отдельного reviewer/approve шага нет. Editor/admin явно
 публикует допустимый собственный вопрос; набор публикуется по admin confirmation,
@@ -197,8 +199,8 @@ row-level errors/create/update/unchanged/conflict, safe export, cancel/reclaim/r
 отчёт различает applied/pending/failed, cancel не переписывает применённую историю.
 Withdraw/restore меняют только допустимые pointers/status с аудитом.
 
-HTTP upload/import/publish/withdraw/restore пока отсутствуют. Реализуется политика и
-подготовка существующих draft DTO/read models; полный pipeline не объявляется готовым.
+HTTP upload/import/cancel/retry/report реализованы в 3b.2; publish/withdraw/restore
+пока отсутствуют. Полный pipeline публикации не объявляется готовым.
 
 ## Откат и безопасность эксплуатации
 
@@ -217,3 +219,10 @@ hashes и source ownership нового этапа, но сохраняет Cont
 оставлять 3b runtime с удалённой схемой. Требуются остановка нового API, проверка
 backup/ключа и согласованная версия runtime+schema. Никакого `downgrade base` на
 рабочей БД. Производственные DB-права/HTTPS/proxy/backup в этом PR не настраиваются.
+
+## Этап 3b.2
+
+0006 добавляет import_jobs, import_rows, import_content_keys и необязательный
+question_revisions.license_reference. Старые миграции и история не переписаны.
+Реализованный протокол описан в [IMPORTS.md](IMPORTS.md); последующие планы 3b.3
+в этом документе не означают наличие HTTP-публикации.

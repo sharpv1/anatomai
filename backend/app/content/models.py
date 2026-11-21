@@ -220,6 +220,7 @@ class QuestionRevision(Base):
     source_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("content_sources.id", ondelete="RESTRICT")
     )
+    license_reference: Mapped[str | None] = mapped_column(Text)
     source_reference: Mapped[str | None] = mapped_column(Text().evaluates_none(), server_default="")
     source_page: Mapped[str | None] = mapped_column(String(128))
     created_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))

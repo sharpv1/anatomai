@@ -59,6 +59,7 @@ async def enforce_access(request: Request) -> AsyncIterator[None]:
     require_origin(
         request.headers, settings, mutation=request.method not in ("GET", "HEAD", "OPTIONS")
     )
+    committed = False
     try:
         async with request.app.state.database.sessions.begin() as db:
             identity = await authenticate(db, cookie_token(request), settings)
@@ -72,5 +73,12 @@ async def enforce_access(request: Request) -> AsyncIterator[None]:
             request.state.identity = identity
             request.state.identity_db = db
             yield
+        committed = True
     except SQLAlchemyError:
         raise ApplicationError("SERVICE_NOT_READY", "Сервис временно недоступен.", 503) from None
+    finally:
+        if not committed:
+            from pathlib import Path
+
+            for path in getattr(request.state, "import_pending_paths", []):
+                Path(path).unlink(missing_ok=True)
