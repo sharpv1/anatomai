@@ -1,0 +1,56 @@
+name: MEDEXA frontend integration
+on:
+  pull_request:
+    paths:
+      - src/**
+      - tests/**
+      - public/**
+      - package*.json
+      - index.html
+      - tsconfig*.json
+      - vite.config.ts
+      - .env.example
+      - docs/frontend-integration-6a.md
+      - .github/workflows/medexa-frontend.yml
+  push:
+    branches: [feature/medexa-frontend-integration-6a]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: medexa-frontend-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Build default disabled integration
+        run: npm run build
+      - name: Build opt-in integration without deployment
+        run: VITE_MEDEXA_BACKEND_ENABLED=true npm run build -- --outDir dist-backend
+      - name: Install isolated Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Prepare exact baseline and local test servers
+        run: |
+          mkdir -p /tmp/medexa6a-baseline
+          git archive ac1d822063505ce52d115d0200dbc62decd93ef3 src public index.html vite.config.ts package.json tsconfig.json tsconfig.app.json tsconfig.node.json | tar -x -C /tmp/medexa6a-baseline
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/medexa6a-baseline/node_modules
+          npm run dev -- --host 127.0.0.1 --port 5180 --strictPort > /tmp/frontend-local.log 2>&1 &
+          VITE_MEDEXA_BACKEND_ENABLED=true npm run dev -- --host 127.0.0.1 --port 5181 --strictPort > /tmp/frontend-server.log 2>&1 &
+          node_modules/.bin/vite /tmp/medexa6a-baseline --host 127.0.0.1 --port 5182 --strictPort > /tmp/frontend-baseline.log 2>&1 &
+          node --input-type=module -e 'for (const port of [5180,5181,5182]) { let ready=false; for(let n=0;n<100;n++){try {if((await fetch(`http://127.0.0.1:${port}`)).ok){ready=true;break;}}catch{} await new Promise(r=>setTimeout(r,100));} if(!ready)process.exit(1);}'
+      - name: Mock API scenarios and mobile visual regression (loopback only)
+        run: CHROMIUM_PATH="$(node --input-type=module -e 'import {chromium} from "playwright";process.stdout.write(chromium.executablePath())')" node tests/backend-browser.mjs
+      - name: Existing Learning/Exam UI regression with integration disabled
+        run: CHROMIUM_PATH="$(node --input-type=module -e 'import {chromium} from "playwright";process.stdout.write(chromium.executablePath())')" npm run test:backend:local
