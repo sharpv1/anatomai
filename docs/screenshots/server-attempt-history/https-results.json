@@ -1,0 +1,26 @@
+{
+  "defaultFlagOffBuild": true,
+  "attemptsPersistedInPostgres": 3,
+  "responsesPersistedInPostgres": 6,
+  "historyAfterReload": true,
+  "backend": "real FastAPI HTTPS + PostgreSQL16",
+  "migration": "0010_progress_statistics",
+  "learning": true,
+  "exam": true,
+  "serverResult": true,
+  "secureHttpOnlyCookie": true,
+  "csrf": true,
+  "reopen": true,
+  "editableExam": true,
+  "exactMutationReplayAfterRealResponseLoss": true,
+  "protectedReview": true,
+  "backgroundTimeoutAfterPageClose": true,
+  "completedTests": 3,
+  "apiErrors": [
+    {
+      "path": "/api/v1/auth/session",
+      "status": 401
+    }
+  ],
+  "realTelegramIOS": false
+}

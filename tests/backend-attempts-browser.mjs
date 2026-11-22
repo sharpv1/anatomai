@@ -9,7 +9,8 @@ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'
 const logs=[];
 async function setup(width,telegram=true,height=812){
  const p=await browser.newPage({viewport:{width,height},reducedMotion:'reduce'});p.setDefaultTimeout(10000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
- const state={a:null,owner:1,offline:false,loss:false,conflict:false,posts:0,commands:[],receipts:new Map(),history:0,expire:false,authLoss:false,reviewCalls:0};
+ if(!telegram)await p.addInitScript(()=>sessionStorage.setItem('anatomai:server-mode','1'));
+ const state={a:null,owner:1,offline:false,loss:false,conflict:false,posts:0,commands:[],receipts:new Map(),history:0,expire:false,authLoss:false,startFailure:false,reviewCalls:0};
  await p.route('https://telegram.org/**',r=>r.fulfill({contentType:'application/javascript',body:telegram?`window.callbacks=new Set();window.Telegram={WebApp:{initData:new URLSearchParams({user:JSON.stringify({id:1})}).toString(),initDataUnsafe:{user:{id:1}},platform:'ios',version:'8.0',isFullscreen:true,viewportHeight:${height},viewportStableHeight:${height},safeAreaInset:{top:59,bottom:34},contentSafeAreaInset:{top:45,bottom:0},ready(){},expand(){},onEvent(){},offEvent(){},BackButton:{show(){},hide(){},onClick(cb){callbacks.add(cb)},offClick(cb){callbacks.delete(cb)}}}};`:''}));
  const send=(r,v,status=200)=>r.fulfill({status,contentType:'application/json',body:JSON.stringify(v)});
  await p.route('**/api/v1/**',async r=>{
@@ -46,6 +47,7 @@ async function setup(width,telegram=true,height=812){
    if(state.authLoss){state.authLoss=false;return fail(401,'AUTH_REQUIRED');}
    state.posts++;const h=req.headers(),body=req.postDataJSON();assert.equal(h['x-csrf-token'],'csrf-'+state.owner);assert.match(h['idempotency-key'],/^[\da-f-]{36}$/i);state.commands.push({path,body,headers:h});
    const key=h['idempotency-key'];const replay=state.receipts.get(key);if(replay){assert.equal(replay.match,h['if-match']);assert.deepEqual(replay.body,body);return ok(replay.value);}
+   if(path==='/attempts'&&state.startFailure)return fail(503,'SERVICE_NOT_READY');
    if(state.conflict){state.conflict=false;state.a.version++;return fail(409,'ATTEMPT_VERSION_CONFLICT');}
    if(path==='/attempts'){state.a=fixture(body.mode);state.a.current_item.text+=' '+('Длинный медицинский вопрос. ').repeat(25);}
    else {
@@ -65,7 +67,7 @@ async function setup(width,telegram=true,height=812){
  });
  await p.goto(base);await p.locator('.hero').waitFor();return {p,state,errors};
 }
-async function start(p,mode){await p.getByRole('button',{name:'Тесты',exact:true}).click();await p.locator('.test-card').click();await p.locator('.test-card').click();await p.locator('.topic-modes').getByRole('button',{name:mode,exact:true}).click();await p.locator('.test-question').waitFor();}
+async function start(p,mode,question=true){await p.getByRole('button',{name:'Тесты',exact:true}).click();await p.locator('.test-card').click();await p.locator('.test-card').click();await p.locator('.topic-modes').getByRole('button',{name:mode,exact:true}).click();if(question)await p.locator('.test-question').waitFor();}
 async function fit(p){assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);const footer=p.locator('.test-session__footer');if(await footer.count()){const b=await footer.boundingBox();assert.ok(b.y>=0&&b.y+b.height<=p.viewportSize().height-25,JSON.stringify(b));}}
 async function nativeBack(p){assert.equal(await p.evaluate(()=>callbacks.size),1);await p.evaluate(()=>[...callbacks][0]());}
 try{
@@ -80,7 +82,8 @@ try{
   state.expire=true;await p.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await p.locator('.test-result').waitFor();assert.equal(state.a.result.finish_reason,'timeout');await p.getByRole('button',{name:'Разобрать ошибки',exact:true}).click();await p.getByText('SYNTHETIC REVIEW',{exact:true}).waitFor();await nativeBack(p);await p.locator('.test-card').waitFor();assert.deepEqual(errors,[]);logs.push({width,learning:true,exam:true,resume:true,timeout:true,conflict:true,requestReplay:true});await p.close();
  }
  const {p,state,errors}=await setup(390,false);await start(p,'Обучение');assert.equal(await p.getByRole('button',{name:'Назад к тестам',exact:true}).count(),1);state.offline=true;await p.locator('.test-choice').first().click();await p.getByRole('button',{name:'Повторить запрос'}).waitFor();assert.equal(await p.locator('.test-choice.correct').count(),0);state.offline=false;await p.getByRole('button',{name:'Повторить запрос'}).click();await p.getByText('SYNTHETIC LEARNING EXPLANATION',{exact:true}).waitFor();await p.getByRole('button',{name:'Назад к тестам',exact:true}).click();await p.locator('.test-card').waitFor();assert.deepEqual(errors,[]);await p.close();
+ const rejected=await setup(390);rejected.state.startFailure=true;await start(rejected.p,'Обучение',false);await rejected.p.getByRole('button',{name:'Повторить запрос'}).waitFor();assert.equal(await rejected.p.locator('.test-question,.page-view').count(),0);assert.equal(rejected.state.a,null);assert.equal(rejected.state.posts,1);rejected.state.startFailure=false;await rejected.p.getByRole('button',{name:'Повторить запрос'}).click();await rejected.p.locator('.test-question').waitFor();assert.equal(rejected.state.posts,2);assert.equal(rejected.state.commands[0].headers['idempotency-key'],rejected.state.commands[1].headers['idempotency-key']);assert.deepEqual(rejected.errors,[]);await rejected.p.close();
  const expired=await setup(390);await start(expired.p,'Обучение');expired.state.authLoss=true;await expired.p.locator('.test-choice').first().click();await expired.p.getByRole('button',{name:'Повторить запрос'}).waitFor();await expired.p.waitForFunction(()=>!document.querySelector('[role=alert] button')?.disabled);assert.equal(expired.state.posts,1);await expired.p.getByRole('button',{name:'Повторить запрос'}).click();await expired.p.getByText('SYNTHETIC LEARNING EXPLANATION',{exact:true}).waitFor();assert.equal(expired.state.posts,2);assert.deepEqual(expired.errors,[]);await expired.p.close();
  const account=await setup(390);await start(account.p,'Экзамен');await account.p.locator('.test-choice').first().click();await account.p.waitForFunction(()=>!document.querySelector('.test-session__action').disabled);await account.p.evaluate(()=>{const a=window.Telegram.WebApp;a.initData=new URLSearchParams({user:JSON.stringify({id:2})}).toString();a.initDataUnsafe.user.id=2;window.dispatchEvent(new Event('focus'));});await account.p.locator('.hero').waitFor();assert.equal(await account.p.locator('.test-question').count(),0);assert.equal(account.state.owner,2);await account.p.close();
- writeFileSync(`${shots}/mock-results.json`,JSON.stringify({scenarios:logs,browserFallback:true,offline:true,accountIsolation:true,identity401DuringMutation:true,backend:'mock',realTelegramIOS:false},null,2));console.log(JSON.stringify(logs));
+ writeFileSync(`${shots}/mock-results.json`,JSON.stringify({scenarios:logs,browserFallback:true,offline:true,accountIsolation:true,identity401DuringMutation:true,start503NoLocalFallback:true,backend:'mock',realTelegramIOS:false},null,2));console.log(JSON.stringify(logs));
 }finally{await browser.close();}

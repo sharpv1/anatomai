@@ -120,3 +120,23 @@ test('feature flag is opt-in and disabled mode never validates or uses a remote 
  assert.equal(integrationConfig({VITE_MEDEXA_BACKEND_ENABLED:'true'}).base,'/api/v1');
  assert.throws(()=>integrationConfig({VITE_MEDEXA_BACKEND_ENABLED:'true',VITE_MEDEXA_API_BASE:'https://production.invalid'}));
 });
+
+test('Telegram launch requires the server path without opting in; SDK shell alone is not a launch', async()=>{
+ const configUrl=url(compile('config.ts').replaceAll("'./client'",JSON.stringify(clientUrl)).replaceAll('import.meta.env','{}'));
+ const {hasTelegramLaunch}=await import(configUrl);
+ assert.equal(hasTelegramLaunch(undefined),false);
+ assert.equal(hasTelegramLaunch(undefined,'#tgWebAppData=opaque&tgWebAppPlatform=ios'),true);
+ assert.equal(hasTelegramLaunch(undefined,'?tgWebAppPlatform=ios'),true);
+ assert.equal(hasTelegramLaunch(undefined,'#topic'),false);
+ for(const initData of ['', '  ', null, 17])assert.equal(hasTelegramLaunch({initData}),false);
+ for(const initData of ['auth_date=1&user=...&hash=...', 'malformed-proof'])assert.equal(hasTelegramLaunch({initData}),true);
+ // Routing is fail-closed; only Identity is allowed to accept/reject the proof.
+});
+
+test('server selection validates its configured base even when browser opt-in is false',async()=>{
+ const configUrl=url(compile('config.ts').replaceAll("'./client'",JSON.stringify(clientUrl)).replaceAll('import.meta.env','{}'));
+ const {integrationConfig}=await import(configUrl);
+ const env={VITE_MEDEXA_BACKEND_ENABLED:'false',VITE_MEDEXA_API_BASE:'/custom/api/v1'};
+ assert.deepEqual(integrationConfig(env,true),{enabled:false,base:'/custom/api/v1'});
+ assert.throws(()=>integrationConfig({...env,VITE_MEDEXA_API_BASE:'https://outside.invalid'},true));
+});

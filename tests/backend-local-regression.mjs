@@ -1,4 +1,4 @@
-/** Run the existing UI 8.3 regression unchanged, with isolated output and browser path. */
+/** Local demo remains available in a browser without Telegram launch data. */
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,rmSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
@@ -8,6 +8,7 @@ assert.ok(['127.0.0.1','localhost'].includes(new URL(target).hostname),'Loopback
 const temporary=new URL('./.backend-ui83-check.mjs',import.meta.url);
 try{
  const source=readFileSync(new URL('./ui83.mjs',import.meta.url),'utf8')
+  .replace("['browser','expanded','fullscreen']", "['browser']")
   .replace("const dir='docs/screenshots/ui-8.3'","const dir='/tmp/medexa6a-local-regression'")
   .replace("executablePath:'/usr/bin/chromium'","executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium'");
  writeFileSync(temporary,source);

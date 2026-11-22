@@ -335,7 +335,7 @@ with (
 
         class Handler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=str(ROOT / "dist-backend"), **kwargs)
+                super().__init__(*args, directory=str(ROOT / "dist"), **kwargs)
 
             def log_message(self, *args):
                 pass
@@ -390,6 +390,7 @@ with (
                     "origin": origin,
                     "topic": topic,
                     "definition": definition,
+                    "defaultBuild": True,
                     "initData": launch(uuid4().int % (2**52) + 1),
                 }
             )
@@ -397,11 +398,23 @@ with (
         fixture_path.chmod(0o600)
         dbcheck = tmp / "check.py"
         dbcheck.write_text(
-            (
-                "import asyncio, sys\nsys.path.insert(0,"
-                + repr(str(BACKEND))
-                + ")\nfrom app.core.config import Settings\nfrom sqlalchemy.ext.asyncio import create_async_engine\nfrom sqlalchemy import text\nasync def check():\n e=create_async_engine(Settings().database_url)\n async with e.connect() as c:\n  assert await c.scalar(text(\"SELECT count(*) FROM attempts WHERE status='completed' AND finish_reason='timeout' AND test_definition_id='PLACEHOLDER'\")) >= 1\n await e.dispose()\nasyncio.run(check())\n"
-            ).replace("PLACEHOLDER", definition)
+            "import asyncio, sys\nsys.path.insert(0," + repr(str(BACKEND)) + ")\n"
+            "from app.core.config import Settings\nfrom sqlalchemy.ext.asyncio import create_async_engine\n"
+            "from sqlalchemy import text\n"
+            "async def check():\n e=create_async_engine(Settings().database_url)\n"
+            " async with e.connect() as c:\n"
+            "  phase=sys.argv[1] if len(sys.argv)>1 else 'final'\n"
+            '  n=await c.scalar(text("SELECT count(*) FROM attempts"))\n'
+            "  if phase=='start':\n   assert n==1\n"
+            "   assert await c.scalar(text(\"SELECT count(*) FROM attempts WHERE status='in_progress'\"))==1\n"
+            "  elif phase=='learning':\n   assert n==1\n"
+            "   assert await c.scalar(text(\"SELECT count(*) FROM attempts WHERE status='completed'\"))==1\n"
+            '   assert await c.scalar(text("SELECT count(*) FROM attempt_responses"))==2\n'
+            "  else:\n   assert n==3\n"
+            "   assert await c.scalar(text(\"SELECT count(*) FROM attempts WHERE status='completed'\"))==3\n"
+            "   assert await c.scalar(text(\"SELECT count(*) FROM attempts WHERE finish_reason='timeout'\"))==1\n"
+            '   assert await c.scalar(text("SELECT count(*) FROM attempt_responses"))==6\n'
+            " await e.dispose()\nasyncio.run(check())\n"
         )
         os.environ["MEDEXA_E2E_PYTHON"] = sys.executable
         os.environ["MEDEXA_E2E_DB_CHECK"] = str(dbcheck)
