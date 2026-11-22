@@ -71,3 +71,51 @@ export function TestSession({ test, platform, onComplete, onExit, initialMode }:
     </div>{!learning && <small className="test-session__footer-note">Ответы проверим после завершения экзамена</small>}</footer>
   </section>;
 }
+
+/** Same presentation/CSS, driven exclusively by a confirmed server snapshot. */
+export function ServerTestSession({ attempt, platform, busy, seconds, onExit, onAction, status }: {
+    attempt: import('../../backend/attempts').Attempt;
+    platform: TelegramPlatform;
+    busy: boolean;
+    seconds: number;
+    onExit: () => void;
+    onAction: (action: 'submit' | 'draft' | 'advance' | 'skip' | 'finish' | 'navigate', value?: string | number) => void;
+    status: import('react').ReactNode;
+}) {
+    const { isTelegramContext, requestBack } = useTelegramBackButton(platform, onExit, true, false);
+    const content = useRef<HTMLDivElement>(null);
+    const item = attempt.current_item;
+    useEffect(() => { content.current?.scrollTo(0, 0); }, [item?.id]);
+    if (!item)
+        return null;
+    const learning = attempt.mode === 'learning', checked = learning && item.state === 'checked';
+    const feedback = checked ? item.feedback : undefined;
+    const completed = attempt.current_position + (checked ? 1 : 0);
+    return <section className={`test-session${isTelegramContext ? ' test-session--native-back' : ''}${learning ? '' : ' test-session--exam'}`} aria-label="Прохождение теста">
+    <header className="test-session__top">
+      {!isTelegramContext && <button className="test-session__close" onClick={requestBack} aria-label="Назад к тестам">‹</button>}
+      <div className="test-session__meta"><span title={attempt.title}>{attempt.title}</span><strong>Вопрос {attempt.current_position + 1} из {attempt.total}</strong>
+        <div className="test-session__track" role="progressbar" aria-label="Завершённые вопросы" aria-valuemin={0} aria-valuemax={attempt.total} aria-valuenow={completed}><b style={{ width: `${completed / attempt.total * 100}%` }}/></div>
+        <div className="test-session__context"><p className="test-session__mode">{learning ? 'Обучение' : 'Экзамен'}</p>{!learning && attempt.current_position > 0 && <button className="notes-back" disabled={busy} onClick={() => onAction('navigate', attempt.current_position - 1)}>Предыдущий вопрос</button>}</div>
+      </div>
+      {!learning && <span className={`test-session__score ${seconds < 60 ? 'urgent' : ''}`} aria-label="Осталось времени">◷ {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</span>}
+    </header>
+    <div className="test-session__content" ref={content}>
+      {status}
+      <div className="test-question"><h2 id="test-question-title">{item.text}</h2>
+        <div className="test-session__options" role="group" aria-labelledby="test-question-title">
+          {item.options.map(option => {
+            const selected = item.selected_option_ids.includes(option.id);
+            const state = feedback ? (feedback.correct_option_ids.includes(option.id) ? 'correct' : selected ? 'wrong' : '') : selected ? 'selected' : '';
+            return <button key={option.id} className={`test-choice ${state}`} aria-pressed={selected} disabled={busy || checked} onClick={() => onAction(learning ? 'submit' : 'draft', !learning && selected ? undefined : option.id)}><span className="test-choice__radio" aria-hidden="true"><i /></span><span className="test-choice__text">{option.text}</span><b className="test-choice__mark" aria-hidden="true">{state === 'correct' ? '✓' : state === 'wrong' ? '×' : ''}</b></button>;
+        })}
+        </div>
+        {feedback && <><span className="test-answer-status" role="status">{feedback.is_correct ? 'Правильно' : 'Ответ неверный. Правильный ответ выделен.'}</span>{feedback.explanation && <p className="study-note">{feedback.explanation}</p>}</>}
+      </div>
+    </div>
+    <footer className="test-session__footer"><div className="test-session__footer-actions">
+      <button className="test-session__skip" disabled={busy || checked} onClick={() => onAction('skip')}>Пропустить</button>
+      <button className="test-session__action" disabled={busy || (learning && !checked)} onClick={() => onAction(attempt.current_position === attempt.total - 1 ? 'finish' : 'advance')}>{attempt.current_position === attempt.total - 1 ? (learning ? 'Завершить тест' : 'Завершить экзамен') : 'Далее'}</button>
+    </div>{!learning && <small className="test-session__footer-note">Ответы проверим после завершения экзамена</small>}</footer>
+  </section>;
+}

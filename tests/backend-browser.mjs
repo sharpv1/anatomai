@@ -5,7 +5,7 @@ const active=process.env.MEDEXA_UI_URL??'http://127.0.0.1:5181';
 const legacy=process.env.MEDEXA_LOCAL_URL??'http://127.0.0.1:5180';
 const baseline=process.env.MEDEXA_BASE_URL??'http://127.0.0.1:5182';
 for(const u of [active,legacy,baseline])assert.ok(['127.0.0.1','localhost'].includes(new URL(u).hostname),'Tests require isolated loopback servers');
-const shots='docs/screenshots/frontend-6a';mkdirSync(shots,{recursive:true});
+const shots=process.env.MEDEXA_SCREENSHOTS??'docs/screenshots/frontend-6a';mkdirSync(shots,{recursive:true});
 const ids={d:'11111111-1111-4111-8111-111111111111',t:'22222222-2222-4222-8222-222222222222',test:'33333333-3333-4333-8333-333333333333',q:'44444444-4444-4444-8444-444444444444',note:'55555555-5555-4555-8555-555555555555',o1:'66666666-6666-4666-8666-666666666666',o2:'77777777-7777-4777-8777-777777777777'};
 const now='2026-11-22T06:00:00Z';
 const user=n=>({id:n===1?'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa':'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',telegram_user_id:String(n),first_name:n===1?'СЕРВЕР Один':'СЕРВЕР Два',last_name:'Оченьдлинноеимя Пользователя',username:null,photo_url:null,timezone:'UTC',language:'ru',version:1,roles:['student']});
@@ -34,6 +34,7 @@ async function setup(width,mode,{url=active,empty=false,missing=false,offline=fa
   const send=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
   if(state.offline){await route.abort();return;}
   if(req.method()!=='GET'&&path!=='/auth/telegram')state.mutations.push(path);
+  if(path==='/me/active-attempt')return send(envelope(null));
   if(path==='/auth/session')return state.cookie?send(envelope(session(state.cookie))):send({error:{code:'AUTH_REQUIRED'}},401);
   if(path==='/auth/telegram'){
    state.posts++;const id=JSON.parse(new URLSearchParams(JSON.parse(req.postData()).init_data).get('user')).id;
@@ -74,7 +75,7 @@ try{
   // Compare with exact base, flag off: no backend requests and byte-identical Home.
   const base=await setup(width,'fullscreen',{url:baseline}),local=await setup(width,'fullscreen',{url:legacy});
   for(const a of [base,local]){await a.p.locator('.hero').waitFor();await a.p.waitForTimeout(150);}
-  const a=await base.p.screenshot(),b=await local.p.screenshot();assert.ok(a.equals(b),`flag-off Home differs at ${width}`);writeFileSync(`${shots}/home-local-${width}.png`,b);assert.equal(local.state.private.length,0);
+  const a=await base.p.screenshot(),b=await local.p.screenshot();if(!a.equals(b)){writeFileSync('/tmp/medexa6b-baseline-home.png',a);writeFileSync('/tmp/medexa6b-current-home.png',b);}assert.ok(a.equals(b),`flag-off Home differs at ${width}`);writeFileSync(`${shots}/home-local-${width}.png`,b);assert.equal(local.state.private.length,0);
   await base.p.close();await local.p.close();
   const {p,state,errors}=await setup(width,'fullscreen');
   await p.locator('.hero').waitFor();assert.equal(state.posts,1);assert.match(await p.locator('.greeting h1').innerText(),/СЕРВЕР/);await fit(p);await screenshot(p,`home-server-${width}`);
@@ -85,7 +86,7 @@ try{
   await p.locator('.daily-questions').click();await p.getByRole('heading',{name:'Ответы и разбор'}).waitFor();await p.locator('.question-review__card').waitFor();await fit(p);assert.equal(await p.locator('.question-review__answer--correct').count(),1);assert.match(await p.locator('.question-review__card h2').innerText(),/^17\./);if(width===390)await screenshot(p,'review-server-390');
   const input=p.getByPlaceholder('Найти вопрос');await input.fill('нетсовпадений');await p.getByText('В этой теме пока нет вопросов.').waitFor();await input.fill('сердце');await p.locator('.question-review__card').waitFor();await nativeBack(p);await p.locator('.hero').waitFor();
   await p.locator('.subject').first().click();await p.getByText('Материалы ещё не добавлены',{exact:true}).waitFor();await nativeBack(p);await p.locator('.hero').waitFor();
-  await p.getByRole('button',{name:'Тесты',exact:true}).click();await p.locator('.test-card').first().click();await p.locator('.test-card').first().click();await p.locator('.topic-modes').waitFor();assert.equal(await p.locator('.topic-metrics dd').first().innerText(),'2');await fit(p);if(width===390)await screenshot(p,'topic-server-390');assert.equal(await p.getByRole('button',{name:'Обучение',exact:true}).getAttribute('aria-disabled'),'true');assert.equal(state.mutations.length,0);await nativeBack(p);
+  await p.getByRole('button',{name:'Тесты',exact:true}).click();await p.locator('.test-card').first().click();await p.locator('.test-card').first().click();await p.locator('.topic-modes').waitFor();assert.equal(await p.locator('.topic-metrics dd').first().innerText(),'2');await fit(p);if(width===390)await screenshot(p,'topic-server-390');assert.equal(await p.locator('.topic-modes button').first().isEnabled(),true);assert.equal(state.mutations.length,0);await nativeBack(p);
   await p.getByRole('button',{name:'Профиль',exact:true}).click();await p.locator('.rp-user h1').waitFor();assert.match(await p.locator('.rp-user h1').innerText(),/СЕРВЕР Один/);await fit(p);if(width===390)await screenshot(p,'profile-server-390');
   // Change Telegram user: old account UI is removed, independently verified session and resources.
   await p.evaluate(()=>{const api=window.Telegram.WebApp;api.initData=new URLSearchParams({user:JSON.stringify({id:2,first_name:'UNVERIFIED TWO'})}).toString();api.initDataUnsafe.user.id=2;window.dispatchEvent(new Event('focus'));});

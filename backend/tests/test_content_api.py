@@ -96,9 +96,10 @@ async def test_public_catalog_counts_only_actual_published_available_questions(
     assert categories.json()["data"][0]["id"] == str(data["category"].id)
     topic = await client.get("/api/v1/topics/" + str(data["topic"].id))
     assert topic.json()["data"]["question_count"] == 2
-    assert topic.json()["data"]["available_modes"] == []  # no fake attempt engine
+    assert topic.json()["data"]["available_modes"] == ["learning", "exam"]
     definition = await client.get("/api/v1/test-definitions/" + str(data["definition"].id))
     assert definition.json()["data"]["question_count"] == 2
+    assert definition.json()["data"]["available_modes"] == ["learning", "exam"]
     assert "internal_difficulty" not in definition.text and "correct" not in definition.text
 
 

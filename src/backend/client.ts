@@ -43,8 +43,9 @@ export class ApiClient {
         this.pending.clear();
     }
     async raw(path: string, options: {
-        method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+        method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
         body?: unknown;
+        mutation?: { key: string; match?: string };
         signal?: AbortSignal;
         auth?: boolean;
     } = {}): Promise<unknown> {
@@ -61,6 +62,10 @@ export class ApiClient {
         const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.timeoutMs);
         try {
             const method = options.method ?? 'GET', headers: Record<string, string> = { Accept: 'application/json' };
+            if (options.mutation) {
+                headers['Idempotency-Key'] = options.mutation.key;
+                if (options.mutation.match) headers['If-Match'] = options.mutation.match;
+            }
             if (options.body !== undefined)
                 headers['Content-Type'] = 'application/json';
             if (method !== 'GET' && options.auth !== false) {
