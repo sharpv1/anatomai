@@ -1,9 +1,12 @@
 import type {TelegramPlatform} from '../platform/telegram/TelegramPlatformAdapter';
 import {useTelegramIdentity} from '../features/library/useTelegramIdentity';
-type AppHeaderProps = { onNotifications: () => void; platform: TelegramPlatform };
+import type {User} from '../backend/contracts';
+import {identity} from '../backend/presentation';
+type AppHeaderProps = { onNotifications: () => void; platform: TelegramPlatform; verifiedUser?:User;anonymous?:boolean };
 
-export function AppHeader({ onNotifications, platform }: AppHeaderProps) {
-  const {name}=useTelegramIdentity(platform);
+export function AppHeader({ onNotifications, platform,verifiedUser,anonymous }: AppHeaderProps) {
+  const local=useTelegramIdentity(platform);
+  const {name}=anonymous?{name:null}:verifiedUser?identity(verifiedUser):local;
   const initials=name?.split(/\s+/).slice(0,2).map(s=>Array.from(s)[0]).join('')||'А';
   return (
     <header className="topbar">
