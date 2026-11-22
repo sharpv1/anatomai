@@ -13,7 +13,8 @@
     "test:backend:ui": "node tests/backend-browser.mjs",
     "test:backend:local": "node tests/backend-local-regression.mjs",
     "test:attempts:ui": "node tests/backend-attempts-browser.mjs",
-    "test:attempts:https": "backend/.venv/bin/python tests/run-attempts-https.py"
+    "test:attempts:https": "backend/.venv/bin/python tests/run-attempts-https.py",
+    "test:server-entry": "node tests/server-entry-browser.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

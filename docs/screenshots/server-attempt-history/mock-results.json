@@ -1,0 +1,38 @@
+{
+  "scenarios": [
+    {
+      "width": 375,
+      "learning": true,
+      "exam": true,
+      "resume": true,
+      "timeout": true,
+      "conflict": true,
+      "requestReplay": true
+    },
+    {
+      "width": 390,
+      "learning": true,
+      "exam": true,
+      "resume": true,
+      "timeout": true,
+      "conflict": true,
+      "requestReplay": true
+    },
+    {
+      "width": 430,
+      "learning": true,
+      "exam": true,
+      "resume": true,
+      "timeout": true,
+      "conflict": true,
+      "requestReplay": true
+    }
+  ],
+  "browserFallback": true,
+  "offline": true,
+  "accountIsolation": true,
+  "identity401DuringMutation": true,
+  "start503NoLocalFallback": true,
+  "backend": "mock",
+  "realTelegramIOS": false
+}

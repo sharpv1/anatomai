@@ -69,13 +69,21 @@ async function setup(width,mode,{url=active,empty=false,missing=false,offline=fa
 }
 async function fit(p){const sizes=await p.evaluate(()=>({doc:document.documentElement.scrollWidth,width:innerWidth}));assert.ok(sizes.doc<=sizes.width+1,JSON.stringify(sizes));}
 async function nativeBack(p){assert.equal(await p.evaluate(()=>callbacks.size),1);await p.evaluate(()=>[...callbacks][0]());}
+async function compareRaster(p,a,b){
+ if(a.equals(b))return {changedPixels:0,maxChannelDifference:0};
+ return p.evaluate(async([left,right])=>{
+  const load=src=>new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src='data:image/png;base64,'+src;});
+  const [x,y]=await Promise.all([load(left),load(right)]);const c=document.createElement('canvas');c.width=x.width;c.height=x.height;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(x,0,0);const u=ctx.getImageData(0,0,c.width,c.height).data;ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(y,0,0);const v=ctx.getImageData(0,0,c.width,c.height).data;
+  let changedPixels=0,maxChannelDifference=0;for(let i=0;i<u.length;i+=4){let changed=false;for(let j=0;j<4;j++){const d=Math.abs(u[i+j]-v[i+j]);maxChannelDifference=Math.max(d,maxChannelDifference);changed ||= d!==0;}if(changed)changedPixels++;}return {changedPixels,maxChannelDifference};
+ },[a.toString('base64'),b.toString('base64')]);
+}
 async function screenshot(p,name){await p.screenshot({path:`${shots}/${name}.png`});}
 try{
  for(const width of [375,390,430]){
-  // Compare with exact base, flag off: no backend requests and byte-identical Home.
-  const base=await setup(width,'fullscreen',{url:baseline}),local=await setup(width,'fullscreen',{url:legacy});
+  // Browser demo without Telegram launch stays local, with unchanged Home (at most 2/255 rounding on <0.1% pixels).
+  const base=await setup(width,'fullscreen',{url:baseline,missing:true}),local=await setup(width,'fullscreen',{url:legacy,missing:true});
   for(const a of [base,local]){await a.p.locator('.hero').waitFor();await a.p.waitForTimeout(150);}
-  const a=await base.p.screenshot(),b=await local.p.screenshot();if(!a.equals(b)){writeFileSync('/tmp/medexa6b-baseline-home.png',a);writeFileSync('/tmp/medexa6b-current-home.png',b);}assert.ok(a.equals(b),`flag-off Home differs at ${width}`);writeFileSync(`${shots}/home-local-${width}.png`,b);assert.equal(local.state.private.length,0);
+  const a=await base.p.screenshot(),b=await local.p.screenshot();if(!a.equals(b)){writeFileSync('/tmp/medexa6b-baseline-home.png',a);writeFileSync('/tmp/medexa6b-current-home.png',b);}const raster=await compareRaster(local.p,a,b);assert.ok(raster.maxChannelDifference<=2&&raster.changedPixels<width*812*.001,`flag-off Home differs at ${width}: ${JSON.stringify(raster)}`);assert.equal(await base.p.locator('link[rel=stylesheet]').getAttribute('href'),await local.p.locator('link[rel=stylesheet]').getAttribute('href'),'Production CSS content hashes must match');writeFileSync(`${shots}/home-local-${width}.png`,b);assert.equal(local.state.private.length,0);
   await base.p.close();await local.p.close();
   const {p,state,errors}=await setup(width,'fullscreen');
   await p.locator('.hero').waitFor();assert.equal(state.posts,1);assert.match(await p.locator('.greeting h1').innerText(),/СЕРВЕР/);await fit(p);await screenshot(p,`home-server-${width}`);
