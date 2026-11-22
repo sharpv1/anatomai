@@ -1,24 +1,28 @@
-import { useMemo, useState } from 'react';
-import { demoTests } from '../features/tests/data';
-import type { TestDefinition, TestFilter } from '../features/tests/types';
+import { useMemo, useState, useEffect } from 'react';
+import { LibraryIcon } from '../features/library/LibraryIcon';
+import { catalog, matchesSearch } from '../features/library/catalog';
+import type { TestDefinition } from '../features/tests/types';
 
-type TestsPageProps = { onSelectTest: (test: TestDefinition) => void };
-
-export function TestsPage({ onSelectTest }: TestsPageProps) {
+import type { TelegramPlatform } from '../platform/telegram/TelegramPlatformAdapter';
+import { useTelegramBackButton } from '../platform/telegram/useTelegramBackButton';
+type TestsPageProps = { onSelectTest: (test: TestDefinition) => void; platform: TelegramPlatform; active: boolean };
+export function TestsPage({ onSelectTest, platform, active }: TestsPageProps) {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<TestFilter>('all');
-  const filtered = useMemo(() => demoTests.filter((test) => {
-    const matchesQuery = `${test.title} ${test.level}`.toLowerCase().includes(query.toLowerCase());
-    const matchesFilter = filter === 'all' || (filter === 'active' && test.progress > 0) || (filter === 'new' && test.progress === 0);
-    return matchesQuery && matchesFilter;
-  }), [filter, query]);
-  const completed = demoTests.filter((test) => test.progress > 0).length;
+  const [selection, setSelection] = useState<{discipline?:string;topic?:string}>({});
+  useEffect(()=>{if(!active)return;const sync=()=>setSelection(window.history.state?.catalog ?? {});window.addEventListener('popstate',sync);return()=>window.removeEventListener('popstate',sync);},[active]);
+  const back=()=>window.history.back();
+  const {isTelegramContext,requestBack}=useTelegramBackButton(platform,back,active&&Boolean(selection.discipline),false);
+  const select=(next:typeof selection)=>{setSelection(next);window.history.pushState({catalog:next},'',next.topic?'#catalog-tests':'#catalog-topics');};
 
-  return <>
-    <header className="tests-head"><div><p className="eyebrow">Практика</p><h1>Тесты</h1></div><div className="tests-summary"><strong>{completed}/{demoTests.length}</strong><span>в процессе</span></div></header>
-    <label className="tests-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти тест" aria-label="Найти тест" /></label>
-    <div className="test-filters" role="tablist" aria-label="Фильтр тестов">{(['all', 'active', 'new'] as TestFilter[]).map((item) => <button key={item} className={`test-filter ${filter === item ? 'active' : ''}`} onClick={() => setFilter(item)}>{item === 'all' ? 'Все' : item === 'active' ? 'В процессе' : 'Новые'}</button>)}</div>
-    <section className="test-list" aria-label="Каталог тестов">{filtered.map((test) => <button className="test-card" key={test.id} onClick={() => onSelectTest(test)}><span className={`test-card-icon ${test.color}`}>{test.icon}</span><span className="test-card-body"><strong className="test-card-title">{test.title}</strong><span className="test-card-meta">{test.meta}</span><span className="test-card-foot"><span className="test-level">{test.level}</span><span className="test-progress"><i style={{ width: `${test.progress}%` }} /></span><small>{test.progress}%</small></span></span><span className="test-arrow">›</span></button>)}</section>
-    {filtered.length === 0 && <div className="empty-state">Ничего не найдено</div>}
-  </>;
+  const filtered = useMemo(() => catalog.filter(({ test }) => matchesSearch(test.title, query)), [query]);
+  const quick = catalog.find(item => item.questionCount > 0);
+  return <section className="tests-page library-page" aria-labelledby="tests-title">
+    <header className="library-heading tests-head"><div><p className="eyebrow">Учиться с уверенностью</p><h1 id="tests-title">Тесты</h1><p className="library-subtitle">От вопроса — к пониманию.</p></div></header>
+    <label className="tests-search library-search"><span aria-hidden="true">⌕</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Найти дисциплину" aria-label="Найти тест" /></label>
+    {quick && <button className="library-quick" onClick={() => onSelectTest(quick.test)}><span className="library-quick__icon" aria-hidden="true"><LibraryIcon name="practice" /></span><span><strong>Быстрая практика</strong><small>{quick.test.title.split(':')[0]} · Обучение или экзамен</small></span><span className="library-chevron" aria-hidden="true">›</span></button>}
+    <div className="library-section-title"><h2>Дисциплины</h2><span>{filtered.length} из {catalog.length}</span></div>
+    {selection.discipline && <div className="library-section-title">{!isTelegramContext&&<button className="notes-back" onClick={requestBack}>‹ Назад</button>}<h2>{selection.topic || selection.discipline}</h2><span>{selection.topic ? 'Тесты' : 'Темы'}</span></div>}
+    <section className="test-list" aria-label="Каталог тестов">{filtered.filter(({test})=>!selection.discipline||test.title.split(':')[0].trim()===selection.discipline).map(({ test, questionCount }) => <button className="test-card" key={test.id} onClick={() => { const discipline=test.title.split(':')[0].trim(); const topic=test.title.split(':').slice(1).join(':').trim() || discipline; if(!selection.discipline && catalog.filter(item=>item.test.title.split(':')[0].trim()===discipline).length>1) select({discipline}); else onSelectTest(test); }}><span className={`test-card-icon ${test.color}`} aria-hidden="true">{test.icon}</span><span className="test-card-body"><strong className="test-card-title">{selection.discipline ? test.title.split(':').slice(1).join(':').trim() : test.title.split(':')[0].trim()}</strong><span className="test-card-topic">{test.title.split(':').slice(1).join(':').trim()}</span><span className="test-card-meta">Вопросов: {questionCount}</span></span><span className="test-arrow" aria-hidden="true">›</span></button>)}</section>
+    {filtered.length === 0 && <div className="library-empty" role="status"><strong>Тесты не найдены</strong><p>Попробуйте другую дисциплину или тему.</p><button onClick={() => { setQuery(''); }}>Сбросить поиск</button></div>}
+  </section>;
 }

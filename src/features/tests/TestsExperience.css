@@ -1,0 +1,32 @@
+html[data-anatomai-viewport="true"]{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+.shell button,.shell input{ touch-action: manipulation; }
+.tests-page{ min-width: 0; }
+.tests-page .tests-head{ margin-bottom: 20px; }
+.tests-page .tests-head h1{ font-size: var(--font-page-title); letter-spacing: -.8px; }
+.tests-page .tests-summary strong{ color: var(--blue); }
+.tests-page .tests-search{ height: 48px; border-radius: var(--radius-control); }
+.tests-page .tests-search input{ min-width: 0; font-size: 16px; line-height: var(--line-body); }
+.tests-page .test-filters{ flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.tests-page .test-filter{ min-height: 40px; font-size: 12px; }
+.tests-page .test-card{ padding: 12px 14px; gap: 12px; border-radius: var(--radius-card); transition: background-color var(--motion-press), transform var(--motion-press); }
+.tests-page .test-card:active{ background: #f3f6ff; transform: scale(.99); }
+.tests-page .test-card-title{ color: var(--text-primary); font-size: var(--font-body); line-height: 1.35; font-weight: 650; overflow-wrap: anywhere; }
+.tests-page .test-card-meta{ font-size: 11px; line-height: var(--line-body); }
+.tests-page .test-card-foot{ margin-top: 8px; }
+.tests-page .test-progress{ height: 3px; }
+.tests-page .test-level,.tests-page .test-card-foot small{ font-size: 11px; }
+.tests-page .test-card-icon{ width: 40px; height: 40px; flex-basis: 40px; border-radius: 12px; background: #f0f3f8; font-size: 20px; }
+.test-mode-picker .test-mode-picker__icon{ width: 56px; height: 56px; border-radius: var(--radius-card); font-size: 28px; margin-bottom: 16px; }
+.test-mode-picker h1{ font-size: var(--font-page-title); line-height: 1.2; letter-spacing: -.6px; }
+.test-mode-picker .test-mode-picker__hint{ font-size: 13px; }
+.test-mode-picker .test-mode-card{ padding: 18px 16px; border-radius: var(--radius-card); }
+.test-mode-picker .test-mode-card strong{ font-size: 16px; }
+.test-mode-picker .test-mode-card small{ font-size: 13px; line-height: 1.45; }
+.test-mode-picker .test-mode-card b{ font-size: 11px; }
+.test-mode-picker .test-mode-back{ min-height: 44px; }
+@media (prefers-reduced-motion: reduce){.tests-page .test-card{ transition: none; }
+}
+.tests-page .test-card-meta,.tests-page .tests-summary span,.test-mode-picker .test-mode-picker__hint,.test-mode-picker .test-mode-card small{
+  color: var(--text-secondary);
+}
+.tests-page .test-level{ color: var(--text-secondary); font-weight: 500; }

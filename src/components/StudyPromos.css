@@ -1,0 +1,79 @@
+/* Keep the existing scroll-snap container and its two-axis touch behavior. */
+.shell .study-promos {
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.study-promos .study-promo--image {
+  display: block;
+  position: relative;
+  flex: 0 0 clamp(78%, calc(40% + 142px), 82%);
+  height: clamp(110px, 28.75vw, 115px);
+  aspect-ratio: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: transparent;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.study-promos::before,
+.study-promos::after,
+.study-promo--image::before,
+.study-promo--image::after {
+  content: none;
+}
+
+.study-promo--image img {
+  display: block;
+  position: absolute;
+  /* The approved artwork includes pale outer gutters. Crop them at display
+     time to keep the original WebP bytes and avoid another lossy encode. */
+  left: -2%;
+  top: 0;
+  width: 104%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 50% 52.5%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.study-promo--image img[src$="anatomai-premium.webp"] {
+  /* The crown rises above the coloured surface: preserve that extra headroom. */
+  top: 0;
+  left: 6px;
+  width: calc(100% - 12px);
+  object-position: 50% 31.7%;
+}
+
+.study-promos .study-promo--premium {
+  isolation: isolate;
+  background: #e8e1f6;
+}
+
+/* Fill only the headroom and pale curved edges, outside the text and shield.
+   The centre keeps its original colours. Both layers share one cached WebP. */
+.study-promo--premium .study-promo__artwork {
+  clip-path: inset(20px 17px 0);
+}
+
+.study-promo--premium .study-promo__headroom {
+  -webkit-mask-image: linear-gradient(#000 20px, transparent 20px), linear-gradient(to right, #000 17px, transparent 17px, transparent calc(100% - 17px), #000 calc(100% - 17px));
+  mask-image: linear-gradient(#000 20px, transparent 20px), linear-gradient(to right, #000 17px, transparent 17px, transparent calc(100% - 17px), #000 calc(100% - 17px));
+  mix-blend-mode: darken;
+  pointer-events: none;
+}

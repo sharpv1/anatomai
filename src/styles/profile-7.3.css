@@ -1,0 +1,33 @@
+.radix-profile .rp-user{display:flex;align-items:center;gap:10px;margin:4px 0 14px;padding:10px;background:var(--surface-card);border:1px solid var(--border-control);border-radius:18px;box-shadow:0 3px 12px #17233d05}
+.radix-profile .rp-avatar{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;overflow:hidden;border-radius:13px;background:#edf3ff;color:var(--blue);font-size:15px;font-weight:700}
+.radix-profile .rp-avatar img{width:100%;height:100%;object-fit:cover}
+.radix-profile svg{width:24px;height:24px;flex-shrink:0}
+.radix-profile .rp-user h1{min-width:0;flex:1;font-size:16px;line-height:1.25;letter-spacing:-.3px;overflow-wrap:anywhere}
+.radix-profile .rp-indicators{display:flex;gap:4px;flex-shrink:0}
+.radix-profile .rp-indicators span{display:flex;align-items:center;justify-content:center;gap:3px;min-width:36px;padding:8px 5px;border-radius:12px;background:#edf3ff;color:var(--blue);font-size:12px;font-weight:650}
+.radix-profile .rp-indicators svg{width:16px;height:16px}
+.radix-profile .rp-row{display:flex;align-items:center;gap:12px;width:100%;min-width:0;margin-top:8px;padding:12px;text-align:left;border:1px solid var(--border-control);border-radius:18px;background:var(--surface-card);color:var(--text-primary);box-shadow:0 3px 12px #17233d05}
+.radix-profile .rp-row>svg{color:var(--text-secondary);width:22px;height:22px}
+.radix-profile .rp-row>div{min-width:0;flex:1}
+.radix-profile .rp-row strong{display:block;font-size:14px;font-weight:650;line-height:1.3}
+.radix-profile .rp-row p,.radix-profile .rp-row small{display:block;margin:5px 0 0;color:var(--text-secondary);font-size:12px;line-height:1.45}
+.radix-profile .rp-status{font-size:10px;color:var(--text-secondary)}
+.radix-profile .rp-muted{background:#f8f9fc}
+.radix-profile .rp-reset{min-height:44px;color:var(--error-ink)}
+.radix-profile .rp-reset>svg{color:var(--error-ink)}
+.radix-profile .rp-reset:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+@media(max-width:350px){.radix-profile .rp-user{gap:6px;padding:10px}.radix-profile .rp-user h1{font-size:14px}.radix-profile .rp-indicators span{min-width:30px;padding:7px 3px}.radix-profile .rp-achievement strong{font-size:11px}}
+.radix-profile .rp-section{margin:16px 0 8px;font-size:12px;line-height:1.4;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;color:var(--text-secondary)}
+.radix-profile .premium-card{margin:0 0 14px;padding:16px;border:1px solid var(--ink);border-radius:18px;background:var(--ink);color:#fff}
+.radix-profile .premium-card svg{color:#e5c77b;width:22px;height:22px}
+.radix-profile .premium-card h2{font-size:19px;letter-spacing:-.4px;margin:8px 0 6px}
+.radix-profile .premium-card p{font-size:13px;line-height:1.5;color:#e0e7f3;margin:0 0 12px}
+.radix-profile .premium-card button,.premium-dialog button{min-height:44px;min-width:44px;padding:11px 16px;border-radius:12px;background:var(--blue);color:white;font-size:14px;font-weight:650}
+.premium-dialog{width:min(340px,calc(100% - 36px));position:fixed;inset:calc(var(--app-inset-top,0px) + 12px) 0 calc(var(--app-inset-bottom,0px) + 12px);height:fit-content;margin:auto;max-height:calc(var(--tg-viewport-height,100dvh) - var(--app-inset-top,0px) - var(--app-inset-bottom,0px) - 24px);overflow:auto;padding:24px;border:1px solid var(--border-control);border-radius:20px;background:var(--surface-card);color:var(--text-primary)}
+.premium-dialog::backdrop{background:#17233d66}
+.premium-dialog h2{font-size:22px;margin:0 0 12px}.premium-dialog p{color:var(--text-secondary);font-size:15px;line-height:1.5;margin:0 0 20px}.premium-dialog button{width:100%}
+
+.radix-profile .premium-card button{background:#e5c77b;color:var(--ink);padding:10px 14px}
+.radix-profile .rp-menu{overflow:hidden;border:1px solid var(--border-control);border-radius:16px;background:var(--surface-card)}
+.radix-profile .rp-menu button{display:flex;align-items:center;gap:8px;width:100%;min-height:48px;padding:12px;text-align:left;background:transparent;color:var(--text-primary);border-bottom:1px solid var(--border-control);font-size:14px}
+.radix-profile .rp-menu button:last-child{border-bottom:0}.radix-profile .rp-menu button span{flex:1;min-width:0;overflow-wrap:anywhere}.radix-profile .rp-menu small{color:var(--text-secondary);font-size:11px}.radix-profile .rp-menu b{color:var(--text-secondary);font-size:20px;font-weight:400}

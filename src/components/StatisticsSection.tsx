@@ -1,14 +1,7 @@
-type StatisticsSectionProps = { onDetails: () => void };
-
-export function StatisticsSection({ onDetails }: StatisticsSectionProps) {
-  return (
-    <>
-      <div className="section"><h3>Твоя статистика</h3><button className="see-all" onClick={onDetails}>Подробнее</button></div>
-      <div className="stats">
-        <div className="stat"><div className="stat-icon">✓</div><div><b>78%</b><span>Средний результат</span><em className="stat-trend">↗ +8% за неделю</em></div></div>
-        <div className="stat"><div className="stat-icon">◷</div><div><b>12 ч</b><span>Время обучения</span><em className="stat-trend">● 3 дня активности</em></div></div>
-      </div>
-      <section className="activity"><div className="activity-head"><b>Активность за неделю</b><span>16–22 ноября</span></div><div className="chart">{[34,57,82,46,66,38,25].map((height, index) => <i className={`bar ${index === 2 || index === 4 ? 'active' : index === 1 ? 'mint' : ''}`} style={{ height: `${height}%` }} key={index} />)}</div><div className="days">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map((day) => <span key={day}>{day}</span>)}</div></section>
-    </>
-  );
+import type {Summary} from '../backend/contracts';
+import type {CompletedTest} from '../features/library/statistics';
+import {summarizeHistory} from '../features/library/statistics';
+export function StatisticsSection({onDetails,entries,showActivity=true,server}:{onDetails:()=>void;entries:CompletedTest[];showActivity?:boolean;server?:Summary}){
+ const local=summarizeHistory(entries);const stats=server?{...local,completed:server.completed_tests,average:server.average_percent}:local;const seconds=server?.practice_seconds??entries.reduce((n,e)=>n+e.result.durationSeconds,0);const max=Math.max(1,...stats.week);
+ return <><div className="section"><h3>Твоя статистика</h3><button className="see-all" onClick={onDetails}>Подробнее</button></div><dl className="stats stats--compact"><div><dd>{stats.completed}</dd><dt>Завершено тестов</dt></div><div><dd>{stats.average===null?'—':`${stats.average}%`}</dd><dt>Средний результат</dt></div><div><dd>{(server?server.practice_seconds===null:!entries.length||!entries.every(e=>Number.isFinite(e.result.durationSeconds)&&e.result.durationSeconds>=0))?'—':seconds<60?`${seconds} сек`:`${Math.floor(seconds/60)} мин`}</dd><dt>Время практики</dt></div></dl><p className="home-stats-scope">{server?'Серверная история':'Текущая сессия'}</p>{showActivity&&<section className="activity"><div className="activity-head"><b>Активность за неделю</b><span>По завершённым тестам</span></div><div className="chart">{stats.week.map((count,i)=><i key={i} className={count?'active':''} style={{height:count?`${Math.max(10,count/max*100)}%`:'2px'}} aria-label={`${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]}: ${count} тестов`}/>)}</div><div className="days">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day=><span key={day}>{day}</span>)}</div></section>}</>;
 }

@@ -1,0 +1,98 @@
+name: medexa-foundation-dev
+
+x-runtime: &runtime
+  build:
+    context: .
+    target: runtime
+  environment: &application
+    MEDEXA_ENVIRONMENT: development
+    MEDEXA_DB_HOST: db
+    MEDEXA_DB_PORT: "5432"
+    MEDEXA_DB_NAME: medexa_foundation_dev
+    MEDEXA_DB_USER: medexa_foundation
+    MEDEXA_DB_PASSWORD: ${MEDEXA_DB_PASSWORD:?Set a local password in backend/.env}
+    MEDEXA_IMPORT_STORAGE_DIR: /var/lib/medexa-imports
+    MEDEXA_LOG_LEVEL: INFO
+    MEDEXA_CONTENT_ASSET_DELIVERY_ENABLED: ${MEDEXA_CONTENT_ASSET_DELIVERY_ENABLED:-false}
+    MEDEXA_CONTENT_CURSOR_SIGNING_KEY: ${MEDEXA_CONTENT_CURSOR_SIGNING_KEY:-}
+    MEDEXA_TELEGRAM_BOT_TOKEN: ${MEDEXA_TELEGRAM_BOT_TOKEN:-}
+    MEDEXA_MFA_ENCRYPTION_KEY: ${MEDEXA_MFA_ENCRYPTION_KEY:-}
+    MEDEXA_CSRF_SIGNING_KEY: ${MEDEXA_CSRF_SIGNING_KEY:-}
+    MEDEXA_APP_ORIGIN: ${MEDEXA_APP_ORIGIN:-https://localhost}
+  networks: [foundation]
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  mem_limit: 384m
+  cpus: 0.5
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: medexa_foundation_dev
+      POSTGRES_USER: medexa_foundation
+      POSTGRES_PASSWORD: ${MEDEXA_DB_PASSWORD:?Set a local password in backend/.env}
+    command: [postgres, -c, shared_buffers=128MB, -c, max_connections=25, -c, work_mem=4MB]
+    volumes: [database:/var/lib/postgresql/data]
+    networks: [foundation]
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  migrate:
+    <<: *runtime
+    profiles: [tools]
+    command: [alembic, upgrade, head]
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    <<: *runtime
+    volumes: [imports:/var/lib/medexa-imports]
+    ports: ["127.0.0.1:${MEDEXA_DEV_API_PORT:-18081}:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/live', timeout=2)"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  import-worker:
+    <<: *runtime
+    profiles: [imports]
+    command: [python, -m, app.publishing.worker, --with-imports]
+    volumes: [imports:/var/lib/medexa-imports]
+    read_only: true
+    tmpfs: [/tmp:size=16m,mode=1777]
+    mem_limit: 512m
+    depends_on:
+      db: {condition: service_healthy}
+
+  exam-finalizer:
+    <<: *runtime
+    profiles: [exams]
+    command: [python, -m, app.attempts.finalizer]
+    read_only: true
+    mem_limit: 192m
+    depends_on:
+      db: {condition: service_healthy}
+
+networks:
+  foundation: {}
+volumes:
+  database: {}
+  imports: {}

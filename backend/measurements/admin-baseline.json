@@ -1,0 +1,32 @@
+{
+  "scope": "3b.1 idle/warm health baseline; not import, load, or VPS capacity validation",
+  "api": {
+    "requested_cpu_limit": 1,
+    "requested_memory_limit_bytes": 402653184,
+    "rss_kib": 94412,
+    "high_water_rss_kib": 94412,
+    "ready_serial_requests": 100,
+    "ready_mean_ms": 2.02,
+    "ready_p95_ms": 2.28
+  },
+  "postgres": {
+    "version": "16.16",
+    "sampled_processes": 7,
+    "aggregate_pss_kib": 35396
+  },
+  "environment": {
+    "python": "3.12.16",
+    "docker_cgroup_driver": "none",
+    "memory_limit_supported": false,
+    "effective_shared_cgroup_memory_max_bytes": 8589934592,
+    "effective_shared_cgroup_cpu_max": "200000 100000",
+    "hard_limit_validation": false,
+    "docker_stats_is_service_specific": false
+  },
+  "unmeasured": [
+    "XLSX/DOCX parsing",
+    "ZIP bomb handling",
+    "worker peak RSS",
+    "1 CPU / 2 GB VPS load"
+  ]
+}
