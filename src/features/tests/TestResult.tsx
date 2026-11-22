@@ -57,3 +57,30 @@ export function TestResult({ result, platform, onBack, onRetake }: TestResultPro
     </div>}
   </section>;
 }
+
+/** Server result fields are authoritative; never feed them to resultSummary(). */
+export function ServerTestResult({ result, mode, platform, onBack, onRetake, review, busy }: {
+    result: import('../../backend/contracts').Result;
+    mode: 'learning' | 'exam';
+    platform: TelegramPlatform;
+    onBack: () => void;
+    onRetake: () => void;
+    review: import('react').ReactNode;
+    busy: boolean;
+}) {
+    const [showReview, setShowReview] = useState(false);
+    const back = useTelegramBackButton(platform, onBack, true, false);
+    const percent = result.percent;
+    const title = percent === 100 ? 'Все ответы верные' : percent >= 80 ? 'Отличный результат' : percent >= 60 ? 'Хорошая база' : percent >= 40 ? 'Продолжайте практику' : 'Материал стоит повторить';
+    return <section className="test-result" aria-label="Результат теста">
+    <div className="test-result__summary"><p className="eyebrow">{mode === 'exam' ? 'Экзамен завершён' : 'Тест завершён'}</p>
+      <div className={`test-result__badge ${percent < 60 ? 'low' : ''}`}><svg className="result-ring" viewBox="0 0 120 120" aria-hidden="true"><circle className="result-ring__track" cx="60" cy="60" r="52"/><circle className="result-ring__value" cx="60" cy="60" r="52" pathLength="100" style={{ strokeDasharray: `${percent} 100` }}/></svg><strong>{percent}%</strong></div>
+      <h1>{title}</h1><p className="test-result__test">{result.title}</p><div className="test-result__progress" role="progressbar" aria-label="Правильные ответы" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ transform: `scaleX(${percent / 100})` }}/></div>
+    </div>
+    <div className="test-result__details"><div className="test-result__stats"><div><strong>{result.correct}</strong><span>Правильных</span></div><div><strong>{result.wrong}</strong><span>Ошибок</span></div><div><strong>{result.skipped}</strong><span>Пропущено</span></div></div>
+      <div className="test-result__meta"><p className="test-result__caption">Вопросов: {result.total}</p><p className="test-result__time">Время: <strong>{Math.floor(result.duration_seconds / 60)} мин {result.duration_seconds % 60} сек</strong></p></div>
+      <div className="test-result__actions"><button className="test-session__action" aria-expanded={showReview} onClick={() => setShowReview(v => !v)}>{showReview ? 'Скрыть разбор' : result.wrong + result.skipped > 0 ? 'Разобрать ошибки' : 'Ответы и разбор'}</button><button className="test-result__secondary" disabled={busy} onClick={onRetake}>Повторить</button><button className="test-result__back" onClick={back.requestBack}>К тестам</button></div>
+    </div>
+    {showReview && review}
+  </section>;
+}

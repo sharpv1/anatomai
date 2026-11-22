@@ -51,7 +51,7 @@ async def app_metadata(request: Request) -> Envelope[dict[str, Any]]:
             "capabilities": {
                 "content_configured": request.app.state.settings.content_cursor_signing_key
                 is not None,
-                "attempts": False,
+                "attempts": True,
                 "asset_delivery": request.app.state.settings.content_asset_delivery_enabled,
                 "billing": False,
             },
@@ -152,14 +152,35 @@ def tests_query() -> Select[Any]:
             topics.c.position.label("sort_position"),
             TestDefinition.id.label("sort_id"),
             TestDefinition.question_limit,
+            TestDefinition.selection_policy,
+            TestDefinition.policy_version,
         )
         .join(topics, topics.c.id == TestDefinition.topic_id)
         .where(TestDefinition.status == "published")
     )
 
 
+def available_modes(row: Any, *, definition: bool = False) -> list[str]:
+    """Catalog capability hint; attempts still authoritatively validate the snapshot."""
+    count = row["question_count"]
+    if not 1 <= count <= 5000:
+        return []
+    if not definition:
+        return ["learning", "exam"]
+    if row["selection_policy"] != "ordered_all" or row["policy_version"] != 1:
+        return []
+    modes = ["learning"] if row["question_limit"] is None else []
+    if 1 <= row["exam_duration_seconds"] <= 86400 and (
+        row["question_limit"] is None or row["question_limit"] <= count
+    ):
+        modes.append("exam")
+    return modes
+
+
 def project[T: BaseModel](model: type[T], row: Any, **extra: Any) -> T:
     # Only explicitly declared DTO fields can leave the service, never the ORM entity.
+    if model in (TopicDTO, TestDTO):
+        extra["available_modes"] = available_modes(row, definition=model is TestDTO)
     fields = model.model_fields
     return model.model_validate({key: extra[key] if key in extra else row[key] for key in fields})
 
@@ -269,16 +290,14 @@ async def topics(
         limit=limit,
         cursor=cursor,
     )
-    return await r.listing([project(TopicDTO, row, available_modes=[]) for row in rows], page)
+    return await r.listing([project(TopicDTO, row) for row in rows], page)
 
 
 @router.get("/topics/{entity_id}", response_model=Envelope[TopicDTO])
 @access("public.catalog")
 async def topic(entity_id: UUID, request: Request) -> Envelope[TopicDTO]:
     s = topics_query()
-    return await detail(
-        await reader(request), s, s.selected_columns.id, entity_id, TopicDTO, available_modes=[]
-    )
+    return await detail(await reader(request), s, s.selected_columns.id, entity_id, TopicDTO)
 
 
 @router.get("/test-definitions", response_model=Listing[TestDTO])
@@ -301,7 +320,7 @@ async def tests(
         limit=limit,
         cursor=cursor,
     )
-    return await r.listing([project(TestDTO, row, available_modes=[]) for row in rows], page)
+    return await r.listing([project(TestDTO, row) for row in rows], page)
 
 
 @router.get("/test-definitions/{entity_id}", response_model=Envelope[TestDTO])
@@ -313,7 +332,6 @@ async def test(entity_id: UUID, request: Request) -> Envelope[TestDTO]:
         TestDefinition.id,
         entity_id,
         TestDTO,
-        available_modes=[],
     )
 
 

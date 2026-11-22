@@ -51,7 +51,7 @@ async def test_content_is_disabled_without_key_but_metadata_is_honest(settings, 
             assert response.status_code == 200
             assert response.json()["data"]["capabilities"] == {
                 "content_configured": False,
-                "attempts": False,
+                "attempts": True,
                 "asset_delivery": False,
                 "billing": False,
             }

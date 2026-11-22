@@ -29,7 +29,7 @@ export function HomePage({ onStartTest, onNotify, onStatistics, onNotes, onNoteD
   const streak=server?server.home.statistics.activity_streak_days:sessionStreak(entries);
   return <>
     <AppHeader platform={platform} verifiedUser={server?.user} onNotifications={() => onNotify('Новых уведомлений нет')} />
-    <DailyFocusCard description={server?(server.home.active_attempt?`Сохранён тест «${server.home.active_attempt.title}». Возобновление здесь пока недоступно.`:server.recommendations[0]?`Повтори тему «${server.recommendations[0].title}»`:'Выбери доступную тему и начни подготовку'):undefined} onStart={onStartTest} metrics={{streakLabel:streak===null?'Серия —':`${streak} дн. подряд`,xpLabel:'XP пока недоступны'}} />
+    <DailyFocusCard description={server?(server.home.active_attempt?`Сохранён тест «${server.home.active_attempt.title}». Нажмите «Начать тест», чтобы продолжить.`:server.recommendations[0]?`Повтори тему «${server.recommendations[0].title}»`:'Выбери доступную тему и начни подготовку'):undefined} onStart={onStartTest} metrics={{streakLabel:streak===null?'Серия —':`${streak} дн. подряд`,xpLabel:'XP пока недоступны'}} />
     <SubjectsSection onAll={onNotes} onSelect={onNoteDiscipline} server={server?.disciplines.slice(0,4).map(subject)} />
     <DailyQuestions onOpen={onDailyReview} server={server?.daily} disciplineLabel={server?.dailyDisciplineTitle??undefined} onServerOpen={server?.onDaily} />
     <StatisticsSection entries={entries} onDetails={onStatistics} showActivity={false} server={server?.home.statistics} />
